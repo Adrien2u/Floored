@@ -117,7 +117,12 @@ export function gradeAisle(widthMm: number): ClearanceResult {
  */
 export function occupantLoad(netAreaMm2: number, kind: OccupancyKind = 'unconcentrated'): number {
   if (netAreaMm2 <= 0) return 0;
-  return Math.floor(squareMmToSquareFeet(netAreaMm2) / OCCUPANT_LOAD_SQ_FT[kind]);
+  const people = squareMmToSquareFeet(netAreaMm2) / OCCUPANT_LOAD_SQ_FT[kind];
+  // Settle floating-point noise before flooring. Two rooms totalling exactly
+  // 3000 sq ft compute as 2999.9999999999995, and a bare floor() would quietly
+  // report 199 people instead of 200. Nine decimal places is far below any
+  // meaningful area difference and well above the error being cancelled.
+  return Math.floor(Number(people.toFixed(9)));
 }
 
 /** Square feet of floor area a seated guest needs, per industry planning practice. */
