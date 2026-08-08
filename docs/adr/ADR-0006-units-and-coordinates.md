@@ -47,8 +47,16 @@ is specified tighter than a millimetre, and print output resolves far coarser.
 - Rotation produces non-integer intermediates. Rule: round to the nearest
   millimetre **once**, at the end of a complete gesture, not per animation frame
   — rounding per frame makes a slow drag walk the object.
-- Two projection functions exist, and only two: `mmToScreen` and `mmToPdfPoints`.
-  Any third is a bug.
+- Two **coordinate projections** exist, and only two: `mmToScreen` and
+  `mmToPdfPoints`. A third is a bug.
+
+  This is a rule about sources of truth, not about output formats. An output
+  conversion that _chains off_ one of the two is fine and expected: SVG export
+  reuses the PDF projection (SVG user units map arbitrarily), and PNG is a raster
+  of an already-projected drawing. What is forbidden is a third independent path
+  from millimetres to a coordinate space, because each one is a place the maths
+  can silently disagree with the others.
+
 - Imperial parsing must accept what planners actually type: `12'6"`, `12' 6 1/2"`,
   `150in`, `12.5ft`.
 
