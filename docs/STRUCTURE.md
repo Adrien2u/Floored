@@ -40,8 +40,8 @@ exporter — the property the to-scale print requirement depends on.
 | `src/lib/render/`      | Dual-canvas renderer, viewport, culling, hit-testing                       | 3       |
 | `src/lib/tools/`       | Selection, and drag/rotate/arrange as pure state machines                  | 4       |
 | `src/lib/catalog/`     | Table/chair/stage definitions with verified real dimensions                | 5       |
-| `src/lib/export/`      | Scale projection, vector PDF writer, PNG, SVG                              | 1, 6    |
-| `src/lib/seating/`     | Guest model, import, assignment, constraint solving                        | 7       |
+| `src/lib/export/`      | Scale projection, vector PDF writer, PNG, SVG, day-of sheets               | 1, 6, 7 |
+| `src/lib/seating/`     | Guest model, CSV import, assignment, table numbering                       | 7       |
 | `src/ui/`              | Svelte components. Presentation only — no domain logic.                    | 3+      |
 | `tests/e2e/`           | Playwright specs                                                           | 4+      |
 | `tests/fixtures/`      | Sample `.floored` files, one per released schema version                   | 2+      |
