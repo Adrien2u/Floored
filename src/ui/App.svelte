@@ -9,6 +9,7 @@
   import StartScreen from './StartScreen.svelte';
   import UpdateBanner from './UpdateBanner.svelte';
   import { Editor } from './editor.svelte';
+  import { decodeShare, payloadFromHash } from '$lib/share/share';
 
   const editor = new Editor();
 
@@ -22,6 +23,30 @@
    */
   let started = $state(false);
 
+  /** Set when this plan arrived over a share link, so the copy says so. */
+  let shared = $state(false);
+  let shareError = $state<string | null>(null);
+
+  /**
+   * A plan in the URL opens straight into the workspace.
+   *
+   * Someone following a link wants to see the plan, not a template picker —
+   * and the fragment never reached a server on the way here, so there is
+   * nothing to fetch and no spinner to show.
+   */
+  const payload = payloadFromHash(window.location.hash);
+  if (payload) {
+    void decodeShare(payload).then((result) => {
+      if (!result.ok) {
+        shareError = result.error;
+        return;
+      }
+      editor.load(result.document, result.seating);
+      shared = true;
+      started = true;
+    });
+  }
+
   function startOver() {
     started = false;
   }
@@ -34,6 +59,17 @@
   </header>
 
   <UpdateBanner />
+
+  {#if shareError}
+    <p class="share-error" data-testid="share-error">{shareError}</p>
+  {/if}
+
+  {#if shared && started}
+    <p class="shared" data-testid="shared-notice">
+      Opened from a share link. This is your own copy — editing it changes nothing for whoever sent
+      it.
+    </p>
+  {/if}
 
   {#if !started}
     <StartScreen
@@ -108,6 +144,22 @@
     .workspace {
       grid-template-columns: 1fr;
     }
+  }
+
+  .shared,
+  .share-error {
+    margin: 0 0 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+  }
+
+  .share-error {
+    border-color: var(--color-warn);
+    color: var(--color-warn);
+    font-weight: 600;
   }
 
   .restart {

@@ -7,7 +7,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { startPlan } from './start';
+import { startPlan, chooseTemplate } from './start';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -19,7 +19,7 @@ test('opens on the template picker, not on somebody else\u2019s plan', async ({ 
 });
 
 test('a template produces a plan with tables already in it', async ({ page }) => {
-  await page.getByTestId('template-wedding').click();
+  await chooseTemplate(page, 'wedding');
 
   await expect(page.getByTestId('canvas-host')).toBeVisible();
   await expect(page.getByTestId('element-count')).not.toHaveText('0 elements');
@@ -31,7 +31,7 @@ test('the room size given is the room drawn', async ({ page }) => {
   await page.getByTestId('start-depth').fill('80');
   await expect(page.getByTestId('start-room-size')).toContainText('100');
 
-  await page.getByTestId('template-gala').click();
+  await chooseTemplate(page, 'gala');
 
   // A bigger room fits more tables than the 60 × 40 default.
   const seats = Number.parseInt((await page.getByTestId('seat-count').textContent()) ?? '0', 10);
@@ -40,7 +40,7 @@ test('the room size given is the room drawn', async ({ page }) => {
 
 test('the event name reaches the export', async ({ page }) => {
   await page.getByTestId('start-name').fill('Ruth and Sam');
-  await page.getByTestId('template-cabaret').click();
+  await chooseTemplate(page, 'cabaret');
 
   const downloadPromise = page.waitForEvent('download');
   await page.getByTestId('save').click();
@@ -50,14 +50,14 @@ test('the event name reaches the export', async ({ page }) => {
 });
 
 test('an empty plan is offered for people who want to draw their own room', async ({ page }) => {
-  await page.getByTestId('template-blank').click();
+  await chooseTemplate(page, 'blank');
 
   await expect(page.getByTestId('canvas-host')).toBeVisible();
   await expect(page.getByTestId('element-count')).toHaveText('0 elements');
 });
 
 test('a template with no clearance problems opens without a warning', async ({ page }) => {
-  await page.getByTestId('template-gala').click();
+  await chooseTemplate(page, 'gala');
   await expect(page.getByTestId('clearance-warnings')).toBeHidden();
 });
 

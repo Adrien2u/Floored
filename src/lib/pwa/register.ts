@@ -30,32 +30,47 @@ export function registerServiceWorker(options: RegisterOptions = {}): void {
   // Registration is deferred to load so it never competes with the first paint
   // for bandwidth on the visit that matters most.
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register(SCRIPT_URL).then((registration) => {
-      if (registration.waiting) {
-        offer(registration, options);
-      }
+    void navigator.serviceWorker
+      .register(SCRIPT_URL)
+      // Typed as possibly absent on purpose: the DOM lib promises a
+      // registration, and Firefox does not always keep that promise.
+      .then((registration: ServiceWorkerRegistration | undefined) => {
+        // Firefox hands back an undefined registration when service workers are
+        // blocked by policy or by private browsing. Offline is a nice-to-have;
+        // crashing the app that would otherwise work is not a trade worth
+        // making, so every failure here is silent and harmless.
+        if (!registration) return;
 
-      if (registration.active && !navigator.serviceWorker.controller) {
-        // Active but not controlling this page: the shell is cached, and the
-        // next visit opens offline.
-        options.onOfflineReady?.();
-      }
+        if (registration.waiting) {
+          offer(registration, options);
+        }
 
-      registration.addEventListener('updatefound', () => {
-        const installing = registration.installing;
-        if (!installing) return;
+        if (registration.active && !navigator.serviceWorker.controller) {
+          // Active but not controlling this page: the shell is cached, and the
+          // next visit opens offline.
+          options.onOfflineReady?.();
+        }
 
-        installing.addEventListener('statechange', () => {
-          if (installing.state !== 'installed') return;
+        registration.addEventListener('updatefound', () => {
+          const installing = registration.installing;
+          if (!installing) return;
 
-          if (navigator.serviceWorker.controller) {
-            offer(registration, options);
-          } else {
-            options.onOfflineReady?.();
-          }
+          installing.addEventListener('statechange', () => {
+            if (installing.state !== 'installed') return;
+
+            if (navigator.serviceWorker.controller) {
+              offer(registration, options);
+            } else {
+              options.onOfflineReady?.();
+            }
+          });
         });
+      })
+      .catch(() => {
+        // Registration can be refused outright — private browsing, an
+        // enterprise policy, a page served over plain http. The app works
+        // exactly as before, minus the offline cache.
       });
-    });
   });
 }
 

@@ -71,8 +71,18 @@ export class Renderer {
   constructor(
     private readonly staticCtx: CanvasRenderingContext2D,
     private readonly interactionCtx: CanvasRenderingContext2D,
-    private readonly schedule: (cb: () => void) => number = requestAnimationFrame,
-    private readonly cancel: (handle: number) => void = cancelAnimationFrame
+    /*
+     * Wrapped rather than passed by reference. `requestAnimationFrame` is a
+     * method of `window`, and calling a detached reference under strict mode
+     * hands it an undefined receiver — which Chromium and WebKit tolerate and
+     * Firefox rejects outright with "called on an object that does not
+     * implement interface Window". The frame never fires, and the plan never
+     * paints.
+     */
+    private readonly schedule: (cb: () => void) => number = (cb) => requestAnimationFrame(cb),
+    private readonly cancel: (handle: number) => void = (handle) => {
+      cancelAnimationFrame(handle);
+    }
   ) {}
 
   /** Queue a full repaint: the document or viewport changed. */

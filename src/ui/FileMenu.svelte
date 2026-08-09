@@ -8,6 +8,7 @@
     readFile,
   } from '$lib/export/download';
   import { parse } from '$lib/document/serialize';
+  import { shareLink, MAX_SHARE_URL_LENGTH } from '$lib/share/share';
   import { SCALE, type DrawingScale } from '$lib/export/projection';
   import { exportPlanPdf } from '$lib/export/plan-pdf';
   import type { Editor } from './editor.svelte';
@@ -89,6 +90,37 @@
     );
   }
 
+  /**
+   * Copy a link that carries the whole plan.
+   *
+   * The payload lives in the fragment, so it never reaches a server — there is
+   * nothing to host and nothing to expire. And the recipient opens a copy, so
+   * they cannot silently change the original, which is the specific way the
+   * incumbents' sharing was reported to fail.
+   */
+  async function copyShareLink() {
+    const link = await shareLink(window.location.href, editor.document, editor.seating);
+
+    if (!link.withinLimit) {
+      say(
+        `This plan needs ${String(link.length)} characters, past the ${String(
+          MAX_SHARE_URL_LENGTH
+        )} a link survives. Save the .floored file and send that instead.`,
+        'error'
+      );
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(link.url);
+      say('Link copied. It holds the whole plan — nothing was uploaded.');
+    } catch {
+      // Clipboard access can be refused, and a silent failure would have the
+      // user pasting whatever was there before.
+      window.prompt('Copy this link:', link.url);
+    }
+  }
+
   async function exportPng() {
     const canvas = planCanvas();
     if (!canvas) {
@@ -145,6 +177,13 @@
       data-testid="export-svg">SVG</button
     >
     <button onclick={exportPng} data-testid="export-png">PNG</button>
+    <button
+      onclick={() => {
+        void copyShareLink();
+      }}
+      title="Copies a link containing the plan. Nothing is uploaded."
+      data-testid="share-link">Copy share link</button
+    >
   </div>
 
   <div class="group">
