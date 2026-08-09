@@ -30,7 +30,7 @@ async function clickEmptySpace(page: Page) {
 /**
  * Click the first *editable* element by scanning the canvas.
  *
- * The room is locked in the sample plan and covers the whole canvas, so a click
+ * The room is locked in every template and covers the whole canvas, so a click
  * that lands between tables selects the room — one element selected, and every
  * editing control correctly disabled. Waiting for a non-zero selection count is
  * therefore not enough; the test has to wait for something it can actually act
@@ -42,13 +42,13 @@ async function clickEmptySpace(page: Page) {
 async function selectATable(page: Page): Promise<{ x: number; y: number }> {
   const { box } = await canvasCentre(page);
 
-  // The sample ballroom puts its table rows 10 ft in from the top and bottom of
-  // a 40 ft room, with columns spread across the width. Probing those bands is
-  // a couple of dozen round-trips rather than a couple of hundred — which
-  // matters under Firefox with ten parallel workers, where the brute-force scan
-  // exceeded the per-test timeout.
-  const rows = [0.25, 0.75];
-  const columns = [0.14, 0.22, 0.3, 0.42, 0.5, 0.58, 0.7, 0.78, 0.86];
+  // The wedding template puts guest tables in two bands beside the dancefloor
+  // and one across the back, so those are the places worth probing. A couple of
+  // dozen round-trips rather than a couple of hundred — which matters under
+  // Firefox with ten parallel workers, where a brute-force scan exceeded the
+  // per-test timeout.
+  const rows = [0.35, 0.75];
+  const columns = [0.12, 0.2, 0.28, 0.4, 0.5, 0.6, 0.72, 0.8, 0.88];
 
   for (const row of rows) {
     const y = box.y + box.height * row;

@@ -7,6 +7,7 @@
   import GuestPanel from './GuestPanel.svelte';
   import NumberingControl from './NumberingControl.svelte';
   import StartScreen from './StartScreen.svelte';
+  import UpdateBanner from './UpdateBanner.svelte';
   import { Editor } from './editor.svelte';
 
   const editor = new Editor();
@@ -31,6 +32,8 @@
     <h1>Floored</h1>
     <p>Event floor planning that stays free, works offline, and prints to scale.</p>
   </header>
+
+  <UpdateBanner />
 
   {#if !started}
     <StartScreen

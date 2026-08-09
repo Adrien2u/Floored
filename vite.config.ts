@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { fileURLToPath, URL } from 'node:url';
+// @ts-expect-error -- plain JS build plugin, typed by its JSDoc rather than a .d.ts
+import { serviceWorker } from './scripts/service-worker-plugin.mjs';
 
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [svelte(), serviceWorker()],
   resolve: {
     alias: {
       $lib: fileURLToPath(new URL('./src/lib', import.meta.url)),
