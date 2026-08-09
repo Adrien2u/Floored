@@ -1,0 +1,9 @@
+# Normalise line endings in the repository, and check out LF everywhere.
+# Without this, a clone on Windows (core.autocrlf=true) converts every file to
+# CRLF and `npm run verify` fails at the Prettier step before a newcomer has
+# written a line — which is exactly how this was found.
+* text=auto eol=lf
+
+# Fixtures are compared byte-for-byte by the format-compatibility tests.
+*.floored -text
+*.csv -text
