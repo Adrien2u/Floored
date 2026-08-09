@@ -68,9 +68,11 @@ npx playwright test   # 235 end-to-end tests across Chromium, Firefox, WebKit
 
 ## Status
 
-Phases 0–9 of 10 are done: geometry, document model, renderer, editing tools,
-catalog and capacity, export, seating, PWA and templates, accessibility. Phase 10
-is launch — docs, deployment, and the parts that make it findable.
+All ten phases are done: geometry, document model, renderer, editing tools,
+catalog and capacity, export, seating, PWA and templates, accessibility, launch.
+
+A clean clone to a fully verified build takes about two minutes — measured, not
+estimated: `git clone`, `npm ci`, `npm run verify`.
 
 The bundle is 48 KB gzipped against a 400 KB budget, with **zero runtime
 dependencies**. Everything the app does at runtime, it does with the platform and
