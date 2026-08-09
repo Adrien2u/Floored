@@ -248,8 +248,11 @@ export class Editor {
    * previous plan are not meaningful undo targets for this one, and letting
    * Ctrl+Z reach back into a different document would be alarming.
    */
-  load(doc: FlooredDocument): void {
+  load(doc: FlooredDocument, seating?: SeatingPlan): void {
     this.#state = { document: doc, history: createHistory() };
+    this.seating = seating ?? createSeatingPlan();
+    this.#seatingHistory = [];
+    this.pendingGuest = null;
     this.clearSelection();
     this.hiddenLayers = new Set();
     this.fit();

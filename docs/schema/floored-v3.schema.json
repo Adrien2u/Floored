@@ -1,0 +1,419 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://floored.app/schema/floored-v3.schema.json",
+  "title": "Floored plan (format version 3)",
+  "description": "An event floor plan. All geometry is integer millimetres; display units are a presentation concern and never affect stored values. This schema is published as a contract: any tool may read or write .floored files.",
+  "type": "object",
+  "required": ["schemaVersion", "elements"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "description": "Format version. A single incrementing integer, not semver. Version 3 adds the optional seating block; every future release of Floored opens every file written by an earlier one.",
+      "type": "integer",
+      "const": 3
+    },
+    "meta": {
+      "$ref": "#/$defs/meta"
+    },
+    "layers": {
+      "description": "Layer names, in stacking order.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "elements": {
+      "description": "Elements in draw order: earlier entries render beneath later ones.",
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "$ref": "#/$defs/element"
+      }
+    },
+    "seating": {
+      "$ref": "#/$defs/seating"
+    }
+  },
+  "$defs": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "eventDate": {
+          "description": "ISO 8601 date, or empty. Stored as text so the document contains no Date object.",
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "unitSystem": {
+          "enum": ["imperial", "metric"]
+        }
+      }
+    },
+    "point": {
+      "description": "A coordinate in integer millimetres. +x is right, +y is down.",
+      "type": "object",
+      "required": ["x", "y"],
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      }
+    },
+    "elementBase": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": {
+          "description": "Unique within the document. Opaque - carries no meaning.",
+          "type": "string",
+          "minLength": 1
+        },
+        "layer": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "rotationDeg": {
+          "description": "Degrees clockwise on screen. Rooms ignore this.",
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        }
+      }
+    },
+    "element": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/room"
+        },
+        {
+          "$ref": "#/$defs/roundTable"
+        },
+        {
+          "$ref": "#/$defs/rectTable"
+        },
+        {
+          "$ref": "#/$defs/fixture"
+        },
+        {
+          "$ref": "#/$defs/note"
+        },
+        {
+          "$ref": "#/$defs/seatingBlock"
+        }
+      ]
+    },
+    "room": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/elementBase"
+        }
+      ],
+      "type": "object",
+      "required": ["id", "type", "points"],
+      "properties": {
+        "type": {
+          "const": "room"
+        },
+        "points": {
+          "description": "Boundary vertices. Implicitly closed - do not repeat the first point.",
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/point"
+          }
+        }
+      }
+    },
+    "roundTable": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/elementBase"
+        }
+      ],
+      "type": "object",
+      "required": ["id", "type", "center", "diameterMm"],
+      "properties": {
+        "type": {
+          "const": "roundTable"
+        },
+        "center": {
+          "$ref": "#/$defs/point"
+        },
+        "diameterMm": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "seats": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "rectTable": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/elementBase"
+        }
+      ],
+      "type": "object",
+      "required": ["id", "type", "origin", "widthMm", "depthMm"],
+      "properties": {
+        "type": {
+          "const": "rectTable"
+        },
+        "origin": {
+          "description": "Top-left corner, before rotation.",
+          "$ref": "#/$defs/point"
+        },
+        "widthMm": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "depthMm": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "seats": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "fixture": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/elementBase"
+        }
+      ],
+      "type": "object",
+      "required": ["id", "type", "origin", "widthMm", "depthMm"],
+      "properties": {
+        "type": {
+          "const": "fixture"
+        },
+        "kind": {
+          "description": "Unknown values are read as \"other\" rather than rejected.",
+          "enum": ["stage", "dancefloor", "bar", "buffet", "av", "column", "other"]
+        },
+        "origin": {
+          "$ref": "#/$defs/point"
+        },
+        "widthMm": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "depthMm": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "note": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/elementBase"
+        }
+      ],
+      "type": "object",
+      "required": ["id", "type", "origin"],
+      "properties": {
+        "type": {
+          "const": "note"
+        },
+        "origin": {
+          "$ref": "#/$defs/point"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "seatingBlock": {
+      "description": "A grid of chairs. Generates its seats rather than storing them, so a 3,500-seat theatre layout is a handful of elements rather than 3,500.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/elementBase"
+        }
+      ],
+      "type": "object",
+      "required": ["id", "type", "origin", "rows", "columns", "seatPitchMm", "rowPitchMm"],
+      "properties": {
+        "type": {
+          "const": "seatingBlock"
+        },
+        "origin": {
+          "description": "Top-left corner of the block, before rotation.",
+          "$ref": "#/$defs/point"
+        },
+        "rows": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "columns": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "seatPitchMm": {
+          "description": "Seat-to-seat spacing within a row.",
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "rowPitchMm": {
+          "description": "Row-to-row spacing.",
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "seating": {
+      "description": "Guests, groups, and seat assignments. Optional: a plan with no guest list omits the key entirely. Guests are not elements — they have no geometry and never appear on the drawing (ADR-0013).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "assignmentsLocked": {
+          "description": "Guards assignments against re-import and auto-assign. Separate from an element's own locked flag.",
+          "type": "boolean"
+        },
+        "guests": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "$ref": "#/$defs/guest"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/group"
+          }
+        },
+        "separations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/separation"
+          }
+        }
+      }
+    },
+    "guest": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "description": "Display name. A guest with no name cannot be found by the person holding the printed list, and is dropped on read.",
+          "type": "string",
+          "minLength": 1
+        },
+        "email": {
+          "type": "string"
+        },
+        "groupId": {
+          "description": "Group this guest arrived with, or null.",
+          "type": ["string", "null"]
+        },
+        "isHost": {
+          "description": "The group host sits first, and their seat decides where the group goes.",
+          "type": "boolean"
+        },
+        "seat": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/seatRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "meal": {
+          "type": "string"
+        },
+        "dietary": {
+          "type": "string"
+        },
+        "accessibility": {
+          "description": "Accessibility need. First-class rather than a note: it decides where someone can physically sit.",
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "sourceKey": {
+          "description": "Stable key from the imported data, used to reconcile a re-import so a renamed guest keeps their seat.",
+          "type": "string"
+        }
+      }
+    },
+    "seatRef": {
+      "description": "A seat, addressed as (elementId, seatIndex). Seats are generated by their table and never stored individually (ADR-0012).",
+      "type": "object",
+      "required": ["elementId", "seatIndex"],
+      "additionalProperties": false,
+      "properties": {
+        "elementId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "seatIndex": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "keepTogether": {
+          "type": "boolean"
+        }
+      }
+    },
+    "separation": {
+      "description": "Two guests who must not share a table.",
+      "type": "object",
+      "required": ["a", "b"],
+      "additionalProperties": false,
+      "properties": {
+        "a": {
+          "type": "string",
+          "minLength": 1
+        },
+        "b": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

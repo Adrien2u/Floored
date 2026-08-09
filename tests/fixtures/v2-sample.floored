@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 2,
+  "meta": {
+    "name": "Gala dinner",
+    "eventDate": "2026-03-14",
+    "notes": "Head table on the north wall.",
+    "unitSystem": "imperial"
+  },
+  "layers": ["room", "furniture", "annotations"],
+  "elements": [
+    {
+      "id": "room",
+      "type": "room",
+      "layer": "room",
+      "label": "Ballroom",
+      "locked": true,
+      "rotationDeg": 0,
+      "points": [
+        { "x": 0, "y": 0 },
+        { "x": 18288, "y": 0 },
+        { "x": 18288, "y": 12192 },
+        { "x": 0, "y": 12192 }
+      ]
+    },
+    {
+      "id": "t1",
+      "type": "roundTable",
+      "layer": "furniture",
+      "label": "T1",
+      "locked": false,
+      "rotationDeg": 0,
+      "center": { "x": 4572, "y": 4572 },
+      "diameterMm": 1524,
+      "seats": 8
+    },
+    {
+      "id": "seats-a",
+      "type": "seatingBlock",
+      "layer": "furniture",
+      "label": "Ceremony rows",
+      "locked": false,
+      "rotationDeg": 0,
+      "origin": { "x": 9144, "y": 7620 },
+      "rows": 4,
+      "columns": 6,
+      "seatPitchMm": 508,
+      "rowPitchMm": 914
+    }
+  ]
+}

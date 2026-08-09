@@ -71,7 +71,7 @@
       return;
     }
 
-    editor.load(result.document);
+    editor.load(result.document, result.seating);
     say(
       result.migratedFrom === undefined
         ? `Opened ${result.document.meta.name}.`
@@ -104,7 +104,7 @@
     >
     <button
       onclick={() => {
-        saveDocument(editor.document);
+        saveDocument(editor.document, editor.seating);
       }}
       data-testid="save">Save .floored</button
     >

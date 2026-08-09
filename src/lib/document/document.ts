@@ -24,8 +24,9 @@ import { area } from '$lib/geometry/polygon';
  * History:
  *   1 — first release: room, roundTable, rectTable, fixture, note
  *   2 — adds seatingBlock (Phase 5)
+ *   3 — adds the optional top-level `seating` block (Phase 7)
  */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 export interface DocumentMeta {
   /** Event name, shown in the PDF title block. */

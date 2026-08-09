@@ -12,6 +12,7 @@
 
 import type { StorageAdapter } from './storage';
 import type { FlooredDocument } from '$lib/document/document';
+import type { SeatingPlan } from '$lib/seating/guest';
 import { serialize, parse } from '$lib/document/serialize';
 
 /** Filename of the working document in the store. */
@@ -50,7 +51,7 @@ export interface RecoveredAutosave {
  */
 export class Autosaver {
   private timer: ReturnType<typeof setTimeout> | null = null;
-  private pending: FlooredDocument | null = null;
+  private pending: { doc: FlooredDocument; seating?: SeatingPlan } | null = null;
   private inFlight: Promise<void> = Promise.resolve();
 
   constructor(
@@ -60,8 +61,8 @@ export class Autosaver {
   ) {}
 
   /** Note that the document changed. Writes after the debounce interval elapses. */
-  schedule(doc: FlooredDocument): void {
-    this.pending = doc;
+  schedule(doc: FlooredDocument, seating?: SeatingPlan): void {
+    this.pending = seating ? { doc, seating } : { doc };
     if (this.timer !== null) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       void this.flush();
@@ -80,8 +81,9 @@ export class Autosaver {
       this.timer = null;
     }
 
-    const doc = this.pending;
-    if (!doc) return;
+    const snapshot = this.pending;
+    if (!snapshot) return;
+    const { doc, seating } = snapshot;
     this.pending = null;
 
     // Serialize writes so a slow flush cannot be overtaken by a later one and
@@ -92,7 +94,7 @@ export class Autosaver {
         documentName: doc.meta.name,
         elementCount: doc.elements.length,
       };
-      await this.storage.write(AUTOSAVE_FILE, serialize(doc));
+      await this.storage.write(AUTOSAVE_FILE, serialize(doc, seating));
       await this.storage.write(AUTOSAVE_META_FILE, JSON.stringify(meta));
     });
 

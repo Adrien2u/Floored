@@ -124,3 +124,45 @@ describe('the migration chain', () => {
     expect(result.error).toContain('newer version');
   });
 });
+
+describe('opening a version 2 file', () => {
+  const text = fixture('v2-sample.floored');
+
+  it('parses, and reports the version it came from', () => {
+    const result = parse(text);
+    expect(result.ok && result.migratedFrom).toBe(2);
+  });
+
+  it('keeps the seating block that version 2 introduced', () => {
+    const result = parse(text);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const block = result.document.elements.find((e) => e.id === 'seats-a');
+    expect(block?.type).toBe('seatingBlock');
+    // 4 rows of 6.
+    expect(totalSeats(result.document)).toBe(8 + 24);
+  });
+
+  it('gives a file written before guests existed an empty guest list', () => {
+    const result = parse(text);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.seating.guests).toEqual([]);
+    expect(result.seating.assignmentsLocked).toBe(false);
+  });
+
+  it('round-trips to the current version without further migration', () => {
+    const first = parse(text);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+
+    const second = parse(serialize(first.document, first.seating));
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+
+    expect(second.migratedFrom).toBeUndefined();
+    expect(second.document).toEqual(first.document);
+  });
+});

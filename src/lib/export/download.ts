@@ -7,6 +7,7 @@
  */
 
 import type { FlooredDocument } from '$lib/document/document';
+import type { SeatingPlan } from '$lib/seating/guest';
 import { serialize } from '$lib/document/serialize';
 import { exportPlanPdf, type ExportOptions } from './plan-pdf';
 import { exportPlanSvg, type SvgOptions } from './plan-svg';
@@ -57,9 +58,16 @@ export function safeFilename(name: string, extension: string): string {
   return `${cleaned || 'floor-plan'}.${extension}`;
 }
 
-/** Save the document itself — the format the user owns. */
-export function saveDocument(doc: FlooredDocument): void {
-  downloadText(safeFilename(doc.meta.name, 'floored'), serialize(doc), 'application/json');
+/**
+ * Save the document itself — the format the user owns.
+ *
+ * The seating plan travels with it. A planner who saves their file and
+ * reopens it a week later expects their guest list to still be there; a
+ * `.floored` that carried only furniture would be a data-loss bug wearing a
+ * save button.
+ */
+export function saveDocument(doc: FlooredDocument, seating?: SeatingPlan): void {
+  downloadText(safeFilename(doc.meta.name, 'floored'), serialize(doc, seating), 'application/json');
 }
 
 export function savePdf(doc: FlooredDocument, options?: ExportOptions): void {

@@ -18,6 +18,8 @@ import { CURRENT_SCHEMA_VERSION, createDocument } from './document';
 import type { FloorElement, FixtureKind } from './element';
 import { DEFAULT_LAYERS } from './element';
 import type { Point } from '$lib/geometry/vec';
+import type { Guest, Group, SeatRef, Separation, SeatingPlan } from '$lib/seating/guest';
+import { createSeatingPlan, createGuest } from '$lib/seating/guest';
 
 /** Bound on accepted file size. A plan is small; anything larger is a mistake or an attack. */
 export const MAX_FILE_BYTES = 32 * 1024 * 1024;
@@ -25,8 +27,23 @@ export const MAX_FILE_BYTES = 32 * 1024 * 1024;
 /** Bound on element count, for the same reason. */
 export const MAX_ELEMENTS = 100_000;
 
+/** Bound on guest count, for the same reason as the element bound. */
+export const MAX_GUESTS = 100_000;
+
 export type ParseResult =
-  | { readonly ok: true; readonly document: FlooredDocument; readonly migratedFrom?: number }
+  | {
+      readonly ok: true;
+      readonly document: FlooredDocument;
+      /**
+       * The seating plan the file carried, or an empty one.
+       *
+       * Always present, so a caller never has to distinguish "file predates
+       * seating" from "file has no guests" — for every purpose except the
+       * migration record those are the same thing.
+       */
+      readonly seating: SeatingPlan;
+      readonly migratedFrom?: number;
+    }
   | { readonly ok: false; readonly error: string };
 
 /**
@@ -38,12 +55,12 @@ export type ParseResult =
  * byte-different files with identical content — every save churning the diff of
  * a format whose whole point is being diffable.
  */
-export function serialize(doc: FlooredDocument): string {
-  return JSON.stringify(canonicalDocument(doc), null, 2);
+export function serialize(doc: FlooredDocument, seating?: SeatingPlan): string {
+  return JSON.stringify(canonicalDocument(doc, seating), null, 2);
 }
 
-function canonicalDocument(doc: FlooredDocument): unknown {
-  return {
+function canonicalDocument(doc: FlooredDocument, seating: SeatingPlan | undefined): unknown {
+  const base = {
     schemaVersion: doc.schemaVersion,
     meta: {
       name: doc.meta.name,
@@ -53,6 +70,33 @@ function canonicalDocument(doc: FlooredDocument): unknown {
     },
     layers: [...doc.layers],
     elements: doc.elements.map(canonicalElement),
+  };
+
+  // A plan with no guests writes no `seating` key at all, so adding the guest
+  // list to the format did not change the bytes every existing plan saves to.
+  if (!seating || (seating.guests.length === 0 && !seating.assignmentsLocked)) return base;
+
+  return { ...base, seating: canonicalSeating(seating) };
+}
+
+function canonicalSeating(plan: SeatingPlan): unknown {
+  return {
+    assignmentsLocked: plan.assignmentsLocked,
+    groups: plan.groups.map((g) => ({ id: g.id, name: g.name, keepTogether: g.keepTogether })),
+    guests: plan.guests.map((g) => ({
+      id: g.id,
+      name: g.name,
+      email: g.email,
+      groupId: g.groupId,
+      isHost: g.isHost,
+      seat: g.seat ? { elementId: g.seat.elementId, seatIndex: g.seat.seatIndex } : null,
+      meal: g.meal,
+      dietary: g.dietary,
+      accessibility: g.accessibility,
+      notes: g.notes,
+      sourceKey: g.sourceKey,
+    })),
+    separations: plan.separations.map((s) => ({ a: s.a, b: s.b, reason: s.reason })),
   };
 }
 
@@ -148,9 +192,14 @@ export function parse(text: string): ParseResult {
     return { ok: false, error: 'Plan data is malformed and could not be read.' };
   }
 
+  const seating = readSeating(migrated['seating']);
+  if (!seating) {
+    return { ok: false, error: 'Guest list is malformed and could not be read.' };
+  }
+
   return version < CURRENT_SCHEMA_VERSION
-    ? { ok: true, document, migratedFrom: version }
-    : { ok: true, document };
+    ? { ok: true, document, seating, migratedFrom: version }
+    : { ok: true, document, seating };
 }
 
 /**
@@ -174,6 +223,15 @@ const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string
    * to get from 1 to any later version.
    */
   1: (doc) => doc,
+
+  /**
+   * 2 → 3: adds the optional top-level `seating` block.
+   *
+   * Also additive. A v2 plan carries no guest list, and reading gives it an
+   * empty one rather than leaving the key absent, so nothing downstream has to
+   * check which version the plan came from.
+   */
+  2: (doc) => doc,
 };
 
 function migrate(raw: Record<string, unknown>, fromVersion: number): Record<string, unknown> {
@@ -330,6 +388,96 @@ function readElement(value: unknown): FloorElement | undefined {
       // file is malformed rather than merely newer.
       return undefined;
   }
+}
+
+/**
+ * Read the seating block.
+ *
+ * Returns an empty plan when the key is absent — every file written before v3
+ * is in that position, and so is every plan with no guests. Returns `undefined`
+ * only when the key is present and is not an object, which means the file is
+ * damaged rather than merely old.
+ */
+function readSeating(value: unknown): SeatingPlan | undefined {
+  if (value === undefined || value === null) return createSeatingPlan();
+  if (!isRecord(value)) return undefined;
+
+  const rawGuests = value['guests'];
+  if (rawGuests !== undefined && !Array.isArray(rawGuests)) return undefined;
+  if (Array.isArray(rawGuests) && rawGuests.length > MAX_GUESTS) return undefined;
+
+  const seen = new Set<string>();
+  const guests: Guest[] = [];
+
+  for (const raw of Array.isArray(rawGuests) ? rawGuests : []) {
+    const guest = readGuest(raw);
+    // Duplicate ids would let one delete remove two guests — the same hazard
+    // `addElement` refuses for elements.
+    if (!guest || seen.has(guest.id)) continue;
+    seen.add(guest.id);
+    guests.push(guest);
+  }
+
+  return {
+    guests,
+    groups: readArray(value['groups'], readGroup),
+    separations: readArray(value['separations'], readSeparation),
+    assignmentsLocked: bool(value['assignmentsLocked']),
+  };
+}
+
+function readArray<T>(value: unknown, read: (item: unknown) => T | undefined): T[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(read).filter((item): item is T => item !== undefined);
+}
+
+function readGuest(value: unknown): Guest | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const id = str(value['id']);
+  const name = str(value['name']);
+  // A guest with no id cannot be addressed, and one with no name cannot be
+  // found by the person holding the printed list.
+  if (id === '' || name === '') return undefined;
+
+  const groupId = str(value['groupId']);
+
+  return createGuest(id, name, {
+    email: str(value['email']),
+    groupId: groupId === '' ? null : groupId,
+    isHost: bool(value['isHost']),
+    seat: readSeat(value['seat']),
+    meal: str(value['meal']),
+    dietary: str(value['dietary']),
+    accessibility: str(value['accessibility']),
+    notes: str(value['notes']),
+    sourceKey: str(value['sourceKey'], id),
+  });
+}
+
+function readSeat(value: unknown): SeatRef | null {
+  if (!isRecord(value)) return null;
+  const elementId = str(value['elementId']);
+  const seatIndex = int(value['seatIndex'], -1);
+  if (elementId === '' || seatIndex < 0) return null;
+  return { elementId, seatIndex };
+}
+
+function readGroup(value: unknown): Group | undefined {
+  if (!isRecord(value)) return undefined;
+  const id = str(value['id']);
+  if (id === '') return undefined;
+  return { id, name: str(value['name']), keepTogether: bool(value['keepTogether'], true) };
+}
+
+function readSeparation(value: unknown): Separation | undefined {
+  if (!isRecord(value)) return undefined;
+  const a = str(value['a']);
+  const b = str(value['b']);
+  // A guest cannot be separated from themselves, and the pair would make every
+  // table they sit at report a conflict forever.
+  if (a === '' || b === '' || a === b) return undefined;
+  return { a, b, reason: str(value['reason']) };
 }
 
 function readDocument(raw: Record<string, unknown>): FlooredDocument | undefined {

@@ -3,6 +3,8 @@ import { serialize, parse, MAX_FILE_BYTES } from './serialize';
 import { createDocument, addElement, CURRENT_SCHEMA_VERSION } from './document';
 import type { FloorElement } from './element';
 import { inches, feet } from '$lib/geometry/units';
+import type { SeatingPlan } from '$lib/seating/guest';
+import { createSeatingPlan, createGuest } from '$lib/seating/guest';
 
 const table = (id: string): FloorElement => ({
   id,
@@ -246,5 +248,126 @@ describe('the compatibility guarantee', () => {
     // rather than an architecture change made under pressure.
     const result = parse('{"schemaVersion":1,"elements":[]}');
     expect(result.ok && result.document.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+  });
+});
+
+describe('the seating block', () => {
+  const doc = addElement(createDocument(), table('t1'));
+
+  const plan: SeatingPlan = {
+    guests: [
+      createGuest('g1', 'Ada Lovelace', {
+        email: 'ada@example.com',
+        groupId: 'grp',
+        isHost: true,
+        seat: { elementId: 't1', seatIndex: 3 },
+        dietary: 'Vegetarian',
+        sourceKey: 'ada@example.com',
+      }),
+      createGuest('g2', 'Grace Hopper', { groupId: 'grp' }),
+    ],
+    groups: [{ id: 'grp', name: 'Analytical Engine', keepTogether: true }],
+    separations: [{ a: 'g1', b: 'g2', reason: 'ex-colleagues' }],
+    assignmentsLocked: true,
+  };
+
+  it('round-trips every field of a guest', () => {
+    const result = parse(serialize(doc, plan));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.seating).toEqual(plan);
+  });
+
+  it('is omitted entirely when there are no guests', () => {
+    expect(serialize(doc)).not.toContain('seating');
+    expect(serialize(doc, createSeatingPlan())).not.toContain('seating');
+  });
+
+  it('keeps a lock even with no guests, because that was a deliberate choice', () => {
+    const locked = { ...createSeatingPlan(), assignmentsLocked: true };
+    const result = parse(serialize(doc, locked));
+    expect(result.ok && result.seating.assignmentsLocked).toBe(true);
+  });
+
+  it('drops a guest with no name rather than seating a blank', () => {
+    const text = JSON.stringify({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      elements: [],
+      seating: {
+        guests: [
+          { id: 'g1', name: '' },
+          { id: 'g2', name: 'Real Person' },
+        ],
+      },
+    });
+
+    const result = parse(text);
+    expect(result.ok && result.seating.guests.map((g) => g.name)).toEqual(['Real Person']);
+  });
+
+  it('keeps the first of two guests sharing an id', () => {
+    const text = JSON.stringify({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      elements: [],
+      seating: {
+        guests: [
+          { id: 'g1', name: 'First' },
+          { id: 'g1', name: 'Second' },
+        ],
+      },
+    });
+
+    const result = parse(text);
+    expect(result.ok && result.seating.guests.map((g) => g.name)).toEqual(['First']);
+  });
+
+  it('drops a seat reference with no element or a negative index', () => {
+    const text = JSON.stringify({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      elements: [],
+      seating: {
+        guests: [
+          { id: 'g1', name: 'A', seat: { elementId: '', seatIndex: 2 } },
+          { id: 'g2', name: 'B', seat: { elementId: 't1', seatIndex: -1 } },
+        ],
+      },
+    });
+
+    const result = parse(text);
+    expect(result.ok && result.seating.guests.every((g) => g.seat === null)).toBe(true);
+  });
+
+  it('refuses a seating key that is not an object', () => {
+    const text = JSON.stringify({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      elements: [],
+      seating: 'the guest list',
+    });
+
+    const result = parse(text);
+    expect(result.ok).toBe(false);
+  });
+
+  it('drops a separation of a guest from themselves', () => {
+    const self = {
+      ...createSeatingPlan(),
+      guests: [createGuest('g1', 'Ada')],
+      separations: [{ a: 'g1', b: 'g1', reason: 'nonsense' }],
+    };
+
+    const result = parse(serialize(doc, self));
+    expect(result.ok && result.seating.separations).toEqual([]);
+  });
+
+  it('serializes to identical bytes twice, so saving does not churn the diff', () => {
+    const once = serialize(doc, plan);
+    const twice = serialize(doc, plan);
+    expect(once).toBe(twice);
+
+    const reloaded = parse(once);
+    expect(reloaded.ok).toBe(true);
+    if (!reloaded.ok) return;
+    expect(serialize(reloaded.document, reloaded.seating)).toBe(once);
   });
 });
