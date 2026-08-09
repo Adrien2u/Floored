@@ -17,21 +17,28 @@ Last updated: 2026-08-08.
 | [PerfectTablePlan](https://www.capterra.com/p/74189/PerfectTablePlan/reviews/)                                     | One-time purchase, desktop          | Desktop-only, no cloud sync, no mobile, paid major-version upgrades.                          |
 | [Sweet Home 3D](https://www.sweethome3d.com/)                                                                      | Free, open source                   | Genuinely free — but interior/home design. No banquet objects, no seating, no capacity maths. |
 | [openPlan3D](https://github.com/laanlabs/open3dFloorplan)                                                          | MIT, open source                    | Genuinely free and local-only. Home floor plans, not events.                                  |
-| [eventfloorplanner.com](https://eventfloorplanner.com/)                                                            | Claims "free forever"               | **UNVERIFIED** — SPA, unreadable over plain HTTP. Open question.                              |
+| [eventfloorplanner.com](https://eventfloorplanner.com/)                                                            | Claims "free forever"               | Free with exports and guest management _by its own claim_ — not independently verified (§8).  |
+| [Centric Events free diagram tool](https://centric.events/resources/free-event-diagram-tool/)                      | Free, lead generation               | Genuinely free, no sign-up, PDF export and share link. No save, no guest list (§8).           |
 
 ### The gap
 
 No tool gives away **save + to-scale PDF export + seating assignment**. That is
-precisely where the closest free competitor draws its paywall — and it is free to
+precisely where the closest paid competitor draws its paywall — and it is free to
 provide in a local-first architecture, because none of it costs the provider
 anything once there is no server.
+
+Free diagramming on its own is _not_ the gap: §8 documents a free tool that
+exports PDFs without an account. What no free tool offers is the combination
+above, plus a file you own and offline operation.
 
 ---
 
 ## 2. User pain points
 
 From Capterra, TrustRadius, and G2 review bodies. Ranked by frequency × severity.
-Reddit and YouTube comment mining is still outstanding.
+Reddit and YouTube mining was attempted and failed (§8), so this ranking is
+review-site evidence only and is likely biased toward professional buyers. The
+top two are corroborated everywhere; the tail is not evidence.
 
 **1. Seating assignment is clumsy.** _"Assigning guests to seats can be an
 absolute pain if you don't know what you're doing."_ Users explicitly ask for
@@ -154,12 +161,12 @@ undoable is what keeps undo from feeling haunted — see
 
 ## 5. Open questions
 
-| #     | Question                        | How it gets resolved                                                                                                                                                       |
-| ----- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ~~1~~ | ~~Realistic max scene size~~    | **Resolved** — see §6 and [ADR-0012](adr/ADR-0012-seat-generation.md). Elements stay under ~1,000; ADR-0001 holds.                                                         |
-| 2     | Is DXF import actually needed   | Find what venues really hand over — DXF, PDF, or a photo. If mostly PDF and images, scale-calibrated image import covers it and DXF stays post-1.0.                        |
-| 3     | eventfloorplanner.com free tier | Load in a real browser and establish whether "free forever" includes save and export. If it does, the gap argument in §1 needs revisiting.                                 |
-| 4     | Reddit and YouTube pain points  | Generic web search does not reach these. Mine r/eventplanning, r/weddingplanning, r/CateringIndustry, and competitor tutorial comments. Expected to refine the §2 ranking. |
+| #     | Question                            | How it gets resolved                                                                                                                                       |
+| ----- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~1~~ | ~~Realistic max scene size~~        | **Resolved** — see §6 and [ADR-0012](adr/ADR-0012-seat-generation.md). Elements stay under ~1,000; ADR-0001 holds.                                         |
+| ~~2~~ | ~~Is DXF import actually needed~~   | **Resolved** — see §8. Stays post-1.0.                                                                                                                     |
+| ~~3~~ | ~~eventfloorplanner.com free tier~~ | **Closed, partially** — see §8. Its claim is documented; first-hand verification was not possible and the gap argument was narrowed rather than withdrawn. |
+| ~~4~~ | ~~Reddit and YouTube pain points~~  | **Closed unresolved** — see §8. Every available channel was blocked, and the §2 ranking is unrefined as a result.                                          |
 
 ---
 
@@ -258,3 +265,86 @@ Sources: [two-panel selector](https://designinginterfaces.com/patterns/two-panel
    search field is the primary way in, and an empty result says what to try.
 4. **Names truncate with an ellipsis**, never wrap or overflow their row.
 5. **Nothing is destructive.** Seating, unseating, and moving are all one undo.
+
+---
+
+## 8. The remaining open questions (2, 3 and 4)
+
+Three questions were left open at the end of Phase 0. This section closes all
+three, and two of them close on less evidence than was hoped for. The honest
+result is recorded rather than the tidy one.
+
+### Question 2 — is DXF import actually needed? Resolved: no, not before 1.0
+
+What venues actually hand over is the crux, and the evidence points one way:
+
+- **Competitor tiering is the strongest signal.** SeatPlan puts DXF import in its
+  top tier only. A feature that everyone needed would not survive at the top of a
+  price ladder — it would be table stakes, because the tool would be useless
+  without it for most customers.
+- **The tools that accept CAD accept much more than CAD.** Cvent's diagramming
+  takes "CAD, DWG, PDFs, or other scaled floor plans," and PDF and image sit in
+  that list as equals rather than as fallbacks.
+- **Venues publish PDFs and images to the public web**, as capacity charts and
+  downloadable floor plans. That is what a planner can get without asking anyone.
+- **DWG remains impossible** under permissive licensing regardless, and DWG — not
+  DXF — is the native format most architectural drawings actually exist in. A DXF
+  importer would therefore cover a subset of a subset.
+
+**Decision: scale-calibrated image import covers the realistic case; DXF stays
+post-1.0** and gets built if and only if issues ask for it, which is a signal
+worth more than any of the above.
+
+### Question 3 — eventfloorplanner.com. Closed, partially
+
+Its own marketing says free forever, with exports and guest management. It is a
+single-page app that renders nothing to a plain HTTP fetch, so that claim could
+not be checked first-hand — a real browser session was needed and was not
+available in this environment.
+
+A second free competitor turned up while looking: the **Centric Events diagram
+tool** is genuinely free with no sign-up, drag-and-drop, PDF export, share link,
+undo/redo and a live seat and square-footage readout. It is a lead-generation
+tool for a production company, which is a durable way to fund free software and
+should be taken seriously rather than dismissed.
+
+What it does not have, from its own feature list and FAQ: no way to save or
+reopen a plan, no guest list, no import, no seat assignment, no scale guarantee,
+and no offline use.
+
+**What this changes.** The §1 gap statement — that nobody gives away save +
+to-scale PDF + seating assignment — survives, but it is no longer the whole
+argument, because "free PDF export of a diagram" is now demonstrably available
+elsewhere. The claims that hold up unqualified are narrower and better:
+
+1. **Your file is yours.** Documented JSON, on your disk, with a permanent
+   promise that every future version opens it.
+2. **It runs with the network off**, including export.
+3. **Seating is in the free tool**, not just diagramming.
+4. **It is open source**, so it cannot be withdrawn, paywalled, or shut down.
+
+Those are the four to lead with. Anyone claiming Floored is the only free floor
+planner is wrong, and the README should never say it.
+
+### Question 4 — Reddit and YouTube mining. Closed unresolved
+
+Not done, and not for lack of trying. Every route was blocked:
+
+| Channel                     | Outcome                                                 |
+| --------------------------- | ------------------------------------------------------- |
+| Web search over Reddit      | Search provider does not serve reddit.com to this agent |
+| `rdt` CLI                   | `forbidden` — no credentials                            |
+| OpenCLI Reddit              | Browser bridge extension not connected                  |
+| Jina reader over old.reddit | Cloudflare interstitial                                 |
+| Direct browser control      | Remote debugging disabled; needs a manual opt-in        |
+
+**Consequence, stated plainly:** the §2 pain-point ranking rests on Capterra,
+TrustRadius and G2 reviews only. Review sites over-represent buyers of paid
+enterprise software and under-represent the DIY organiser, so the ranking is
+probably biased toward the professional end of the persona range. The two
+top-ranked pains — clumsy seating assignment and broken sharing — are consistent
+across every source found, so the top of the ranking is safe; the ordering below
+that is not evidence, and no product decision rests on it.
+
+The cheapest way to close this properly is no longer research: it is shipping and
+reading the issue tracker.

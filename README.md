@@ -6,9 +6,10 @@ No account. No server. No subscription. Works offline. Prints to scale.
 
 ## Why this exists
 
-Every event floor planner either charges for the moment the tool becomes useful,
-or solves a different problem. The closest free competitor lets you design all
-day and then blocks **saving** and **PDF export** behind a paywall.
+Most event floor planners charge at the moment the tool becomes useful: the
+closest paid competitor lets you design all day, then blocks **saving** and
+**PDF export** behind its paywall. Free diagramming tools do exist — but they
+give you no file to keep, no guest list, and nothing when the wifi drops.
 
 A floor plan is a small document edited on a canvas. It needs no server. Remove
 the server and the recurring costs vanish — which means the paywalled feature set

@@ -18,8 +18,9 @@ placeholder.
 **Body:**
 
 > I kept running into the same wall in event floor planners: design all day for
-> free, then pay at the moment you want to save the file or print it. The
-> closest free competitor paywalls exactly those two things.
+> free, then pay at the moment you want to save the file or print it. Free
+> diagram tools exist, but they hand you a PDF and nothing else — no file you
+> keep, no guest list, nothing offline.
 >
 > A floor plan is a small document edited on a canvas. It needs no server. Once
 > the server is gone the recurring costs are gone, and the paywalled feature set
