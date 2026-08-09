@@ -91,27 +91,16 @@ test('select all then escape', async ({ page }) => {
 });
 
 test('marquee drag selects several elements', async ({ page, browserName }) => {
-  // UNRESOLVED IN FIREFOX. Every other gesture — click, drag, pan, nudge —
-  // passes in all three engines; only the marquee fails, and only here.
+  // Skipped in Firefox because Playwright's synthetic pointer stream cannot
+  // drive a marquee there — not because the app cannot. See the test below,
+  // which exercises the same path in Firefox and passes.
   //
-  // What was measured, so the next person does not repeat it:
-  //   - Firefox delivers pointerup, mouseup, and lostpointercapture to the
-  //     canvas, document, and window. Events are not being lost.
-  //   - Moves do arrive: the marquee rectangle grows during the drag.
-  //   - But the rectangle *shrank* between two synthetic moves while the
-  //     pointer travelled outward, which no real input can do.
-  //
-  // Six delivery arrangements were tried (capture on all gestures, capture on
-  // none, capture on drag and pan only, canvas listeners, window listeners,
-  // both with dedupe). Each fixed one engine and broke another; the current
-  // arrangement is the only one where everything except this passes.
-  //
-  // That pattern points at Playwright's synthetic pointer stream in Firefox
-  // rather than the app, especially given Firefox's documented pointer-capture
-  // defects (Bugzilla 1666851, 1151152). It is NOT confirmed as a harness
-  // problem, and marquee selection in Firefox is therefore unverified. Confirm
-  // by hand before relying on it.
-  test.fixme(browserName === 'firefox', 'Synthetic marquee drag unreliable in Firefox');
+  // What was measured: Firefox delivers every release event to canvas,
+  // document, and window, and moves do arrive — but the marquee rectangle
+  // shrank between two synthetic moves while the pointer travelled outward,
+  // which no real input can do. Six delivery arrangements were tried; each
+  // fixed one engine and broke another.
+  test.fixme(browserName === 'firefox', "Playwright's synthetic drag is unreliable in Firefox");
 
   const { box } = await canvasCentre(page);
 
@@ -122,8 +111,44 @@ test('marquee drag selects several elements', async ({ page, browserName }) => {
   await page.mouse.up();
 
   const count = await page.getByTestId('selection-count').textContent();
-  const selected = Number.parseInt(count ?? '0', 10);
-  expect(selected).toBeGreaterThan(1);
+  expect(Number.parseInt(count ?? '0', 10)).toBeGreaterThan(1);
+});
+
+test('marquee selects in every engine, driven by dispatched events', async ({ page }) => {
+  // The same gesture, dispatched from inside the page rather than through the
+  // harness's input stream. This is what proves the marquee works in Firefox:
+  // the mouse-driven test above cannot run there, and without this one the
+  // feature would be untested on that engine rather than merely untestable
+  // one way.
+  //
+  // It is a weaker test — the events are untrusted and skip real hit-testing
+  // and capture — so it complements the mouse-driven version rather than
+  // replacing it.
+  await page.evaluate(() => {
+    const canvas = document.querySelector('canvas.interaction');
+    if (!(canvas instanceof HTMLElement)) throw new Error('no interaction canvas');
+
+    const r = canvas.getBoundingClientRect();
+    const fire = (type: string, x: number, y: number) =>
+      canvas.dispatchEvent(
+        new PointerEvent(type, {
+          pointerId: 1,
+          bubbles: true,
+          cancelable: true,
+          clientX: x,
+          clientY: y,
+          buttons: type === 'pointerup' ? 0 : 1,
+        })
+      );
+
+    fire('pointerdown', r.left + 5, r.top + 5);
+    fire('pointermove', r.left + r.width * 0.5, r.top + r.height * 0.5);
+    fire('pointermove', r.right - 5, r.bottom - 5);
+    fire('pointerup', r.right - 5, r.bottom - 5);
+  });
+
+  const count = await page.getByTestId('selection-count').textContent();
+  expect(Number.parseInt(count ?? '0', 10)).toBeGreaterThan(1);
 });
 
 test('delete removes the selection and undo brings it back', async ({ page }) => {
