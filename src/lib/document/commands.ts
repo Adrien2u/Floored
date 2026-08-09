@@ -52,6 +52,18 @@ export type Command =
       readonly kind: 'meta';
       readonly before: Partial<DocumentMeta>;
       readonly after: Partial<DocumentMeta>;
+    }
+  | {
+      /**
+       * Several changes that undo as one.
+       *
+       * Aligning eight tables is one thing the user did, so it must be one
+       * press of Ctrl+Z — not eight. Sub-commands apply in order and invert in
+       * reverse order, which is what keeps captured draw-order indices valid.
+       */
+      readonly kind: 'batch';
+      readonly label: string;
+      readonly commands: readonly Command[];
     };
 
 /** Label for an undo menu entry. */
@@ -67,7 +79,23 @@ export function describeCommand(command: Command): string {
       return `Edit ${command.after.label || command.after.type}`;
     case 'meta':
       return 'Change plan details';
+    case 'batch':
+      return command.label;
   }
+}
+
+/**
+ * Combine commands into a single undoable step.
+ *
+ * Returns `null` for an empty list and the command itself for a list of one, so
+ * the history never holds a batch that wraps nothing or wraps a single change
+ * whose own label is more useful.
+ */
+export function batch(label: string, commands: readonly Command[]): Command | null {
+  if (commands.length === 0) return null;
+  const only = commands[0];
+  if (commands.length === 1 && only) return only;
+  return { kind: 'batch', label, commands };
 }
 
 export function applyCommand(doc: FlooredDocument, command: Command): FlooredDocument {
@@ -86,6 +114,9 @@ export function applyCommand(doc: FlooredDocument, command: Command): FlooredDoc
 
     case 'meta':
       return updateMeta(doc, command.after);
+
+    case 'batch':
+      return command.commands.reduce(applyCommand, doc);
   }
 }
 
@@ -105,6 +136,15 @@ export function invertCommand(command: Command): Command {
 
     case 'meta':
       return { kind: 'meta', before: command.after, after: command.before };
+
+    case 'batch':
+      // Reverse order matters: a batch that removed elements front-to-back must
+      // re-insert them back-to-front, or the captured indices no longer line up.
+      return {
+        kind: 'batch',
+        label: command.label,
+        commands: [...command.commands].reverse().map(invertCommand),
+      };
   }
 }
 

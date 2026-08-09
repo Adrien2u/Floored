@@ -114,3 +114,54 @@ Enforced in CI, not aspirational:
 | Interaction latency    | < 50 ms                           |
 | First contentful paint | < 1.5 s, cold cache               |
 | Offline                | fully functional after first load |
+
+## Gestures are state machines, not event handlers
+
+Every editing gesture — drag, rotate, marquee — is a pure triple:
+
+```
+begin(document, selection, point)  ->  State | null
+update(state, document, point, options)  ->  State
+commit(state)  ->  Command | null
+```
+
+No DOM, no pointer, no canvas. The pointer handlers in `PlanCanvas.svelte` are a
+thin shell that calls these three functions and stores the result.
+
+Two reasons this shape was chosen over handling events directly:
+
+**It makes the hard parts testable.** Snapping, alignment guides, locked
+elements, rotation drift, and "a drag that ends where it started" are all
+ordinary unit tests. ADR-0001 named the interaction surface as the renderer's
+second-biggest risk — roughly two weeks of pointer-event work where bugs hide and
+polish dies. Moving that logic out of the event handlers is the mitigation.
+
+**`null` is a real answer.** `begin` returns null when nothing movable is
+selected, so a gesture that could not do anything never starts. `commit` returns
+null when nothing changed, so a click that wobbles a pixel never lands on the
+undo stack. Everything a user can undo is something they meant to do.
+
+The gesture in progress is a single discriminated union rather than several
+booleans:
+
+```ts
+type Gesture =
+  | { kind: 'none' }
+  | { kind: 'pan'; lastPx: Point }
+  | { kind: 'drag'; state: DragState }
+  | { kind: 'marquee'; startMm: Point; rect: Rect };
+```
+
+A pointer can only be doing one thing at a time, and encoding that in the type
+removes every "is it panning _and_ dragging?" question before it can be asked.
+
+## One user action is one undo
+
+Aligning eight tables produces eight move commands, and must still cost one press
+of Ctrl+Z. A `batch` command holds sub-commands, applies them in order, and
+inverts them in reverse order — the reversal matters, because a batch that
+removed elements front-to-back has to re-insert them back-to-front or the
+captured draw-order indices no longer line up.
+
+`batch` returns `null` for an empty list and the command itself for a list of
+one, so the history never holds a wrapper around nothing.

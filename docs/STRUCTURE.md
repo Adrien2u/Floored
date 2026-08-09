@@ -37,10 +37,10 @@ exporter — the property the to-scale print requirement depends on.
 | `src/lib/geometry/`    | Units, vectors, transforms, polygons, snapping, clearance. Pure functions. | 1       |
 | `src/lib/document/`    | Element schema, immutable updates, undo stack, `.floored` serialization    | 2       |
 | `src/lib/persistence/` | OPFS storage, autosave, crash recovery, file open/save                     | 2       |
-| `src/lib/render/`      | Dual-canvas renderer, viewport, rbush index, culling, hit-testing          | 3       |
-| `src/lib/tools/`       | Pointer-driven editing tools and their state machines                      | 4       |
+| `src/lib/render/`      | Dual-canvas renderer, viewport, culling, hit-testing                       | 3       |
+| `src/lib/tools/`       | Selection, and drag/rotate/arrange as pure state machines                  | 4       |
 | `src/lib/catalog/`     | Table/chair/stage definitions with verified real dimensions                | 5       |
-| `src/lib/export/`      | pdf-lib vector pipeline, PNG, SVG, scale projection                        | 6       |
+| `src/lib/export/`      | Scale projection, vector PDF writer, PNG, SVG                              | 1, 6    |
 | `src/lib/seating/`     | Guest model, import, assignment, constraint solving                        | 7       |
 | `src/ui/`              | Svelte components. Presentation only — no domain logic.                    | 3+      |
 | `tests/e2e/`           | Playwright specs                                                           | 4+      |

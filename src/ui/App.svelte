@@ -1,15 +1,17 @@
 <script lang="ts">
   import PlanCanvas from './PlanCanvas.svelte';
+  import Toolbar from './Toolbar.svelte';
+  import { Editor } from './editor.svelte';
   import { sampleBallroom } from './sample-plan';
-  import { totalSeats, roomAreaMm2 } from '$lib/document/document';
+  import { totalSeats, roomAreaMm2, documentBounds } from '$lib/document/document';
   import { occupantLoad } from '$lib/geometry/clearance';
   import { formatLength } from '$lib/geometry/units';
-  import { documentBounds } from '$lib/document/document';
 
-  // Phase 3 shows the renderer against a fixed sample. Editing tools arrive in
-  // Phase 4, at which point this becomes a real document store.
-  const plan = sampleBallroom();
-  const bounds = documentBounds(plan);
+  const editor = new Editor(sampleBallroom());
+
+  const bounds = $derived(documentBounds(editor.document));
+  const seats = $derived(totalSeats(editor.document));
+  const load = $derived(occupantLoad(roomAreaMm2(editor.document)));
 </script>
 
 <main>
@@ -18,7 +20,8 @@
     <p>Event floor planning that stays free, works offline, and prints to scale.</p>
   </header>
 
-  <PlanCanvas document={plan} />
+  <Toolbar {editor} />
+  <PlanCanvas {editor} />
 
   <dl class="readout">
     <div>
@@ -27,33 +30,35 @@
     </div>
     <div>
       <dt>Seats</dt>
-      <dd>{totalSeats(plan)}</dd>
+      <dd data-testid="seat-count">{seats}</dd>
     </div>
     <div>
       <dt>Occupant load</dt>
-      <dd>{occupantLoad(roomAreaMm2(plan))} <small>NFPA estimate</small></dd>
+      <dd>{load} <small>NFPA estimate</small></dd>
     </div>
   </dl>
 
   <p class="hint">
-    Scroll to zoom, shift-drag to pan, click a table to select it. Editing tools arrive in Phase 4.
+    Click to select, drag to move, drag empty space to marquee-select. Shift-drag pans, scroll
+    zooms. Ctrl/Cmd-click adds to the selection. Arrow keys nudge, shift-arrow nudges ten. Alt
+    suspends snapping. Ctrl+Z undoes.
   </p>
 </main>
 
 <style>
   main {
-    max-width: 68rem;
+    max-width: 72rem;
     margin: 0 auto;
-    padding: 2.5rem 1.5rem 4rem;
+    padding: 2rem 1.5rem 4rem;
   }
 
   header {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
   }
 
   h1 {
     margin: 0 0 0.25rem;
-    font-size: clamp(2rem, 1.4rem + 2.4vw, 3rem);
+    font-size: clamp(1.75rem, 1.3rem + 2vw, 2.5rem);
     letter-spacing: -0.03em;
   }
 
@@ -66,7 +71,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
-    margin: 1rem 0 0;
+    margin: 0.75rem 0 0;
     padding: 0;
   }
 
@@ -103,6 +108,7 @@
   .hint {
     margin-top: 1rem;
     font-size: 0.8125rem;
+    line-height: 1.6;
     color: var(--color-muted);
   }
 </style>

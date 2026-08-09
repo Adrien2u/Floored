@@ -7,6 +7,7 @@ import {
   applyCommand,
   invertCommand,
   describeCommand,
+  batch,
   type Command,
 } from './commands';
 import {
@@ -235,5 +236,125 @@ describe('labels', () => {
   it('falls back to the element type when it has no label', () => {
     const command = addCommand(createDocument(), { ...table('t1'), label: '' });
     expect(describeCommand(command)).toBe('Add roundTable');
+  });
+});
+
+describe('batch commands', () => {
+  // Aligning eight tables is one thing the user did. It must cost one Ctrl+Z,
+  // not eight, or undo feels broken in a way that is hard to describe and
+  // impossible to ignore.
+
+  it('applies every sub-command', () => {
+    let doc = createDocument();
+    doc = addElement(doc, table('a'));
+    doc = addElement(doc, table('b'));
+
+    const command = batch('Align left', [
+      { kind: 'move', ids: ['a'], dxMm: 500, dyMm: 0 },
+      { kind: 'move', ids: ['b'], dxMm: 250, dyMm: 0 },
+    ]);
+    expect(command).not.toBeNull();
+    if (!command) return;
+
+    const applied = applyCommand(doc, command);
+    const [first, second] = applied.elements;
+    expect(first?.type === 'roundTable' && first.center.x).toBe(500);
+    expect(second?.type === 'roundTable' && second.center.x).toBe(250);
+  });
+
+  it('inverts exactly, restoring the original document', () => {
+    let doc = createDocument();
+    doc = addElement(doc, table('a'));
+    doc = addElement(doc, table('b'));
+    doc = addElement(doc, table('c'));
+
+    const command = batch('Delete two', [
+      { kind: 'remove', element: doc.elements[2]!, index: 2 },
+      { kind: 'remove', element: doc.elements[0]!, index: 0 },
+    ]);
+    if (!command) return;
+
+    const applied = applyCommand(doc, command);
+    expect(applied.elements.map((e) => e.id)).toEqual(['b']);
+
+    // Reverse order on invert is what keeps the captured indices valid.
+    expect(applyCommand(applied, invertCommand(command))).toEqual(doc);
+  });
+
+  it('undoes as a single history entry', () => {
+    let state = start();
+    state = push(state, addCommand(state.document, table('a')));
+    state = push(state, addCommand(state.document, table('b')));
+    const beforeAlign = state.document;
+
+    state = push(
+      state,
+      batch('Align left', [
+        { kind: 'move', ids: ['a'], dxMm: 500, dyMm: 0 },
+        { kind: 'move', ids: ['b'], dxMm: 250, dyMm: 0 },
+      ])
+    );
+
+    state = undo(state);
+    expect(state.document).toEqual(beforeAlign);
+    // One undo was enough; the adds are still there to undo separately.
+    expect(canUndo(state.history)).toBe(true);
+  });
+
+  it('redoes as a single entry too', () => {
+    let state = start();
+    state = push(state, addCommand(state.document, table('a')));
+
+    const command = batch('Nudge twice', [
+      { kind: 'move', ids: ['a'], dxMm: 100, dyMm: 0 },
+      { kind: 'move', ids: ['a'], dxMm: 0, dyMm: 100 },
+    ]);
+    if (!command) return;
+
+    state = push(state, command);
+    const afterBatch = state.document;
+
+    state = redo(undo(state));
+    expect(state.document).toEqual(afterBatch);
+  });
+
+  it('carries its own label into the undo menu', () => {
+    let state = start();
+    state = push(state, addCommand(state.document, table('a')));
+    state = push(
+      state,
+      batch('Align left', [
+        { kind: 'move', ids: ['a'], dxMm: 1, dyMm: 0 },
+        { kind: 'move', ids: ['a'], dxMm: 1, dyMm: 0 },
+      ])
+    );
+
+    expect(undoLabel(state.history)).toBe('Align left');
+  });
+
+  it('returns null for an empty list rather than an empty batch', () => {
+    expect(batch('Nothing', [])).toBeNull();
+  });
+
+  it('unwraps a single command, whose own label is more useful', () => {
+    const single = { kind: 'move', ids: ['a'], dxMm: 1, dyMm: 0 } as const;
+    expect(batch('Align left', [single])).toBe(single);
+  });
+
+  it('nests without losing exactness', () => {
+    let doc = createDocument();
+    doc = addElement(doc, table('a'));
+
+    const inner = batch('Inner', [
+      { kind: 'move', ids: ['a'], dxMm: 100, dyMm: 0 },
+      { kind: 'move', ids: ['a'], dxMm: 0, dyMm: 100 },
+    ]);
+    if (!inner) return;
+
+    const outer = batch('Outer', [inner, { kind: 'move', ids: ['a'], dxMm: 50, dyMm: 50 }]);
+    if (!outer) return;
+
+    const applied = applyCommand(doc, outer);
+    expect(applyCommand(applied, invertCommand(outer))).toEqual(doc);
   });
 });

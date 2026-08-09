@@ -3,39 +3,45 @@
   import { Renderer, type RenderState } from '$lib/render/renderer';
   import type { Palette } from '$lib/render/draw';
   import {
-    createViewport,
     panByPixels,
     zoomAt,
     resizeViewport,
     fitToBounds,
     screenToMm,
-    type Viewport,
   } from '$lib/render/viewport';
-  import { elementAt } from '$lib/render/scene';
-  import { documentBounds, type FlooredDocument } from '$lib/document/document';
+  import { elementAt, elementsInMarquee } from '$lib/render/scene';
+  import { documentBounds } from '$lib/document/document';
   import { DEFAULT_GRID_MM } from '$lib/geometry/snap';
+  import { beginDrag, updateDrag, commitDrag, type DragState } from '$lib/tools/drag';
+  import type { Rect } from '$lib/geometry/transform';
+  import type { Editor } from './editor.svelte';
 
   interface Props {
-    document: FlooredDocument;
+    editor: Editor;
   }
 
-  const { document: plan }: Props = $props();
+  const { editor }: Props = $props();
 
   let host: HTMLDivElement;
   let staticCanvas: HTMLCanvasElement;
   let interactionCanvas: HTMLCanvasElement;
-
   let renderer: Renderer | null = null;
-  let viewport = $state<Viewport>(createViewport(800, 600));
-  let selectedIds = $state<ReadonlySet<string>>(new Set());
-  let panning = false;
-  let lastPointer = { x: 0, y: 0 };
 
   /**
-   * Read the palette from CSS custom properties so the canvas follows the
-   * page theme. Canvas cannot inherit colour the way the DOM does, so the
-   * values are pulled once per repaint rather than hard-coded.
+   * The pointer gesture currently in progress.
+   *
+   * One variable rather than several booleans: a pointer can only be doing one
+   * thing at a time, and encoding that in the type removes every "is it panning
+   * *and* dragging?" question before it can be asked.
    */
+  type Gesture =
+    | { kind: 'none' }
+    | { kind: 'pan'; lastPx: { x: number; y: number } }
+    | { kind: 'drag'; state: DragState }
+    | { kind: 'marquee'; startMm: { x: number; y: number }; rect: Rect };
+
+  let gesture = $state<Gesture>({ kind: 'none' });
+
   function readPalette(): Palette {
     const style = getComputedStyle(host);
     const read = (name: string, fallback: string) =>
@@ -53,21 +59,22 @@
   }
 
   function currentState(): RenderState {
+    const marquee = gesture.kind === 'marquee' ? gesture.rect : undefined;
     return {
-      document: plan,
-      viewport,
-      selectedIds,
-      hiddenLayers: new Set(),
+      document: editor.document,
+      viewport: editor.viewport,
+      selectedIds: editor.selection,
+      hiddenLayers: editor.hiddenLayers,
       palette: readPalette(),
-      gridSpacingMm: DEFAULT_GRID_MM,
+      gridSpacingMm: editor.gridMm || DEFAULT_GRID_MM,
+      ...(marquee ? { marquee } : {}),
     };
   }
 
   function sizeCanvases() {
     const rect = host.getBoundingClientRect();
     // Render at device resolution so hairlines stay crisp on a high-DPI screen,
-    // then scale the context back to CSS pixels so all the layout maths stays
-    // in one unit.
+    // then scale the context back to CSS pixels so layout maths stays in one unit.
     const dpr = window.devicePixelRatio || 1;
 
     for (const canvas of [staticCanvas, interactionCanvas]) {
@@ -78,7 +85,17 @@
       canvas.getContext('2d')?.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
-    viewport = resizeViewport(viewport, rect.width, rect.height);
+    editor.viewport = resizeViewport(editor.viewport, rect.width, rect.height);
+  }
+
+  function pointerMm(event: PointerEvent) {
+    const rect = host.getBoundingClientRect();
+    return screenToMm(event.clientX - rect.left, event.clientY - rect.top, editor.viewport);
+  }
+
+  function pointerPx(event: PointerEvent) {
+    const rect = host.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
 
   onMount(() => {
@@ -88,7 +105,7 @@
 
     renderer = new Renderer(staticCtx, interactionCtx);
     sizeCanvases();
-    viewport = fitToBounds(viewport, documentBounds(plan));
+    editor.viewport = fitToBounds(editor.viewport, documentBounds(editor.document));
     renderer.invalidate(currentState());
 
     const observer = new ResizeObserver(() => {
@@ -107,10 +124,11 @@
   });
 
   $effect(() => {
-    // Re-reads plan, viewport, and selection, so any change repaints.
-    void plan;
-    void viewport;
-    void selectedIds;
+    void editor.document;
+    void editor.viewport;
+    void editor.selection;
+    void editor.hiddenLayers;
+    void gesture;
     renderer?.invalidate(currentState());
   });
 
@@ -118,55 +136,156 @@
     event.preventDefault();
     const rect = host.getBoundingClientRect();
     const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-    // A trackpad reports many small deltas; an exponential keeps the zoom rate
-    // even across both input kinds.
-    viewport = zoomAt(viewport, Math.exp(-event.deltaY * 0.002), anchor);
+    // Exponential, so a trackpad's many small deltas and a mouse wheel's few
+    // large ones zoom at the same perceived rate.
+    editor.viewport = zoomAt(editor.viewport, Math.exp(-event.deltaY * 0.002), anchor);
   }
 
   function onPointerDown(event: PointerEvent) {
-    const rect = host.getBoundingClientRect();
-    const px = event.clientX - rect.left;
-    const py = event.clientY - rect.top;
+    interactionCanvas.setPointerCapture(event.pointerId);
+    const mm = pointerMm(event);
 
-    // Middle button, space, or an empty-space drag pans. Phase 4 replaces this
-    // with real tools; it exists so the renderer can be judged in motion.
+    // Middle button or space-equivalent (shift) pans, whatever is underneath.
     if (event.button === 1 || event.shiftKey) {
-      panning = true;
-      lastPointer = { x: px, y: py };
-      interactionCanvas.setPointerCapture(event.pointerId);
+      gesture = { kind: 'pan', lastPx: pointerPx(event) };
       return;
     }
 
-    const hit = elementAt(plan, screenToMm(px, py, viewport));
-    selectedIds = hit ? new Set([hit.id]) : new Set();
+    const hit = elementAt(editor.document, mm, editor.hiddenLayers);
+
+    if (!hit) {
+      if (!event.ctrlKey && !event.metaKey) editor.clearSelection();
+      gesture = { kind: 'marquee', startMm: mm, rect: { x: mm.x, y: mm.y, width: 0, height: 0 } };
+      return;
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      editor.toggleSelection(hit.id);
+      gesture = { kind: 'none' };
+      return;
+    }
+
+    // Clicking an element that is already part of a multi-selection keeps the
+    // selection, so dragging one member drags the group — the behaviour every
+    // drawing tool has and nobody thinks about until it is missing.
+    if (!editor.selection.has(hit.id)) editor.select(hit.id);
+
+    const drag = beginDrag(editor.document, editor.selection, mm);
+    gesture = drag ? { kind: 'drag', state: drag } : { kind: 'none' };
   }
 
   function onPointerMove(event: PointerEvent) {
-    if (!panning) return;
-    const rect = host.getBoundingClientRect();
-    const px = event.clientX - rect.left;
-    const py = event.clientY - rect.top;
+    if (gesture.kind === 'none') return;
+    const mm = pointerMm(event);
 
-    viewport = panByPixels(viewport, px - lastPointer.x, py - lastPointer.y);
-    lastPointer = { x: px, y: py };
+    switch (gesture.kind) {
+      case 'pan': {
+        const px = pointerPx(event);
+        editor.viewport = panByPixels(
+          editor.viewport,
+          px.x - gesture.lastPx.x,
+          px.y - gesture.lastPx.y
+        );
+        gesture = { kind: 'pan', lastPx: px };
+        break;
+      }
+
+      case 'drag': {
+        const next = updateDrag(gesture.state, editor.document, mm, {
+          gridMm: editor.snapEnabled ? editor.gridMm : 0,
+          scale: editor.viewport.scale,
+          snapDisabled: event.altKey || !editor.snapEnabled,
+        });
+        gesture = { kind: 'drag', state: next };
+        break;
+      }
+
+      case 'marquee': {
+        gesture = {
+          kind: 'marquee',
+          startMm: gesture.startMm,
+          rect: {
+            x: Math.min(gesture.startMm.x, mm.x),
+            y: Math.min(gesture.startMm.y, mm.y),
+            width: Math.abs(mm.x - gesture.startMm.x),
+            height: Math.abs(mm.y - gesture.startMm.y),
+          },
+        };
+        break;
+      }
+    }
   }
 
   function onPointerUp(event: PointerEvent) {
-    if (!panning) return;
-    panning = false;
-    interactionCanvas.releasePointerCapture(event.pointerId);
+    if (interactionCanvas.hasPointerCapture(event.pointerId)) {
+      interactionCanvas.releasePointerCapture(event.pointerId);
+    }
+
+    if (gesture.kind === 'drag') {
+      editor.push(commitDrag(gesture.state));
+    } else if (gesture.kind === 'marquee' && gesture.rect.width + gesture.rect.height > 0) {
+      const ids = elementsInMarquee(editor.document, gesture.rect, editor.hiddenLayers);
+      if (ids.length > 0) editor.selectMany(ids);
+    }
+
+    gesture = { kind: 'none' };
   }
 
-  function fit() {
-    viewport = fitToBounds(viewport, documentBounds(plan));
+  function onKeyDown(event: KeyboardEvent) {
+    const mod = event.ctrlKey || event.metaKey;
+
+    if (mod && event.key.toLowerCase() === 'z') {
+      event.preventDefault();
+      if (event.shiftKey) editor.redo();
+      else editor.undo();
+      return;
+    }
+
+    if (mod && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      editor.selectAll();
+      return;
+    }
+
+    if (mod && event.key.toLowerCase() === 'd') {
+      event.preventDefault();
+      editor.duplicate();
+      return;
+    }
+
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      event.preventDefault();
+      editor.deleteSelection();
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      editor.clearSelection();
+      return;
+    }
+
+    const arrows: Record<string, { x: number; y: number }> = {
+      ArrowLeft: { x: -1, y: 0 },
+      ArrowRight: { x: 1, y: 0 },
+      ArrowUp: { x: 0, y: -1 },
+      ArrowDown: { x: 0, y: 1 },
+    };
+    const direction = arrows[event.key];
+    if (direction) {
+      event.preventDefault();
+      editor.nudge(direction, event.shiftKey);
+    }
   }
 </script>
 
-<div class="canvas-host" bind:this={host}>
+<svelte:window onkeydown={onKeyDown} />
+
+<div class="canvas-host" bind:this={host} data-testid="canvas-host">
   <canvas bind:this={staticCanvas} class="layer"></canvas>
   <canvas
     bind:this={interactionCanvas}
     class="layer interaction"
+    class:panning={gesture.kind === 'pan'}
     onwheel={onWheel}
     onpointerdown={onPointerDown}
     onpointermove={onPointerMove}
@@ -175,10 +294,13 @@
   ></canvas>
 
   <div class="hud">
-    <button onclick={fit}>Fit</button>
-    <span>{Math.round(viewport.scale * 1000) / 10} px/cm</span>
-    <span>{plan.elements.length} elements</span>
-    <span>{selectedIds.size ? [...selectedIds][0] : 'nothing selected'}</span>
+    <button
+      onclick={() => {
+        editor.fit();
+      }}>Fit</button
+    >
+    <span data-testid="selection-count">{editor.selection.size} selected</span>
+    <span data-testid="element-count">{editor.document.elements.length} elements</span>
   </div>
 </div>
 
@@ -186,7 +308,7 @@
   .canvas-host {
     position: relative;
     width: 100%;
-    height: 70vh;
+    height: 68vh;
     min-height: 420px;
     border: 1px solid var(--color-line);
     border-radius: 8px;
@@ -203,6 +325,10 @@
   .interaction {
     touch-action: none;
     cursor: crosshair;
+  }
+
+  .interaction.panning {
+    cursor: grabbing;
   }
 
   .hud {
