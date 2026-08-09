@@ -18,7 +18,7 @@ MVP ships whole. There is no partial public release.
 | **6** Export                 | Text and font embedding, page tiling, title block, print styling, PNG, SVG                                                      | Whole-plan export measures true; visual regression on emitted output                          |
 | **7** Guest list + seating   | CSV import with reconciliation, groups, drag- and click-to-seat, separations, auto-assign, table numbering, day-of sheets       | Assignment passes hand-built cases; messy CSV fixtures import; day-of sheets carry every name |
 | **8** PWA + onboarding       | Hand-rolled service worker, install flow, prompt-on-update, seven templates, start screen, share links                          | Works with the network disabled; installable with a maskable icon                             |
-| **9** Accessibility + polish | Keyboard operation, WCAG 2.2 AA on chrome and panels, canvas fallback, browser matrix, tablet touch                             | axe passes in CI; manual keyboard walkthrough; four-browser matrix green                      |
+| **9** Accessibility + polish | Keyboard operation of the plan, named regions, checked contrast, pinch to zoom, small-screen layout                             | Keyboard-only suite and contrast tests pass; three-engine matrix green                        |
 | **10** Launch                | Docs site, CONTRIBUTING, templates, governance, Pages deploy, domain                                                            | A stranger clones and runs it in under 10 minutes                                             |
 
 Workbox is not in phase 8. The app is a static shell with hashed filenames and

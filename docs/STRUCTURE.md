@@ -32,24 +32,25 @@ exporter — the property the to-scale print requirement depends on.
 
 ## Directories
 
-| Path                   | Contains                                                                   | Phase   |
-| ---------------------- | -------------------------------------------------------------------------- | ------- |
-| `src/lib/geometry/`    | Units, vectors, transforms, polygons, snapping, clearance. Pure functions. | 1       |
-| `src/lib/document/`    | Element schema, immutable updates, undo stack, `.floored` serialization    | 2       |
-| `src/lib/persistence/` | OPFS storage, autosave, crash recovery, file open/save                     | 2       |
-| `src/lib/render/`      | Dual-canvas renderer, viewport, culling, hit-testing                       | 3       |
-| `src/lib/tools/`       | Selection, and drag/rotate/arrange as pure state machines                  | 4       |
-| `src/lib/catalog/`     | Table/chair/stage definitions with verified real dimensions                | 5       |
-| `src/lib/export/`      | Scale projection, vector PDF writer, PNG, SVG, day-of sheets               | 1, 6, 7 |
-| `src/lib/seating/`     | Guest model, CSV import, assignment, table numbering                       | 7       |
-| `src/lib/templates/`   | The seven starting arrangements                                            | 8       |
-| `src/lib/share/`       | Compressing a plan into a URL fragment                                     | 8       |
-| `src/lib/pwa/`         | Service worker registration and the update prompt                          | 8       |
-| `src/ui/`              | Svelte components. Presentation only — no domain logic.                    | 3+      |
-| `tests/e2e/`           | Playwright specs                                                           | 4+      |
-| `tests/fixtures/`      | Sample `.floored` files, one per released schema version                   | 2+      |
-| `docs/`                | Everything in [README](../README.md#documentation)                         | ongoing |
-| `scripts/`             | Build and CI helpers                                                       | 0       |
+| Path                    | Contains                                                                   | Phase   |
+| ----------------------- | -------------------------------------------------------------------------- | ------- |
+| `src/lib/geometry/`     | Units, vectors, transforms, polygons, snapping, clearance. Pure functions. | 1       |
+| `src/lib/document/`     | Element schema, immutable updates, undo stack, `.floored` serialization    | 2       |
+| `src/lib/persistence/`  | OPFS storage, autosave, crash recovery, file open/save                     | 2       |
+| `src/lib/render/`       | Dual-canvas renderer, viewport, culling, hit-testing                       | 3       |
+| `src/lib/tools/`        | Selection, and drag/rotate/arrange as pure state machines                  | 4       |
+| `src/lib/catalog/`      | Table/chair/stage definitions with verified real dimensions                | 5       |
+| `src/lib/export/`       | Scale projection, vector PDF writer, PNG, SVG, day-of sheets               | 1, 6, 7 |
+| `src/lib/seating/`      | Guest model, CSV import, assignment, table numbering                       | 7       |
+| `src/lib/templates/`    | The seven starting arrangements                                            | 8       |
+| `src/lib/share/`        | Compressing a plan into a URL fragment                                     | 8       |
+| `src/lib/pwa/`          | Service worker registration and the update prompt                          | 8       |
+| `docs/ACCESSIBILITY.md` | What works by keyboard and screen reader, and what does not                | 9       |
+| `src/ui/`               | Svelte components. Presentation only — no domain logic.                    | 3+      |
+| `tests/e2e/`            | Playwright specs                                                           | 4+      |
+| `tests/fixtures/`       | Sample `.floored` files, one per released schema version                   | 2+      |
+| `docs/`                 | Everything in [README](../README.md#documentation)                         | ongoing |
+| `scripts/`              | Build and CI helpers                                                       | 0       |
 
 Directories appear when their phase begins. Empty scaffolding is not created in
 advance — a directory that exists implies content that works.
