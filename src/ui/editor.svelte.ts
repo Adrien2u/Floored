@@ -206,6 +206,20 @@ export class Editor {
     this.select(element.id);
   }
 
+  /**
+   * Replace the document — opening a file.
+   *
+   * History is discarded rather than carried over: the actions that built the
+   * previous plan are not meaningful undo targets for this one, and letting
+   * Ctrl+Z reach back into a different document would be alarming.
+   */
+  load(doc: FlooredDocument): void {
+    this.#state = { document: doc, history: createHistory() };
+    this.clearSelection();
+    this.hiddenLayers = new Set();
+    this.fit();
+  }
+
   fit(): void {
     this.viewport = fitToBounds(this.viewport, documentBounds(this.document));
   }

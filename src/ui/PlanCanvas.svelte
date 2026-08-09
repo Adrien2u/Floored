@@ -124,8 +124,29 @@
     });
     observer.observe(host);
 
+    // Pointer movement and release are tracked on the window, added
+    // imperatively.
+    //
+    // A captured pointer retargets its events to the canvas but they still
+    // bubble to the window, so one listener covers both the captured and
+    // uncaptured cases — which is what makes this work across all three
+    // engines. Handling moves on the canvas alone depended on capture, and
+    // capture is exactly what Firefox gets wrong.
+    //
+    // Imperative rather than `<svelte:window onpointermove=...>`: the
+    // declarative form did not attach here, while `onkeydown` on the same
+    // element did. Not worth chasing when addEventListener is unambiguous.
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+    window.addEventListener('mouseup', endGesture);
+
     return () => {
       observer.disconnect();
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+      window.removeEventListener('mouseup', endGesture);
     };
   });
 
@@ -151,8 +172,31 @@
     editor.viewport = zoomAt(editor.viewport, Math.exp(-event.deltaY * 0.002), anchor);
   }
 
+  /**
+   * Take pointer capture, but only for gestures that need it.
+   *
+   * Capture routes later moves and the release to this canvas even when the
+   * pointer leaves it — which happens constantly when dropping a table near an
+   * edge, or panning past the frame. A marquee never leaves the canvas, so it
+   * gains nothing from capture.
+   *
+   * That distinction matters because Firefox processes capture lazily: the
+   * capture only takes effect on the *next* pointer event, and its pointer-out
+   * handling during capture is a known defect (Bugzilla 1666851, 1151152).
+   * Capturing on a gesture that did not need it cost the marquee its moves in
+   * Firefox while working in Chromium and WebKit.
+   */
+  function capturePointer(event: PointerEvent) {
+    try {
+      interactionCanvas.setPointerCapture(event.pointerId);
+    } catch {
+      // A pointer that has already been released cannot be captured. Not worth
+      // failing a gesture over.
+    }
+  }
+
   function onPointerDown(event: PointerEvent) {
-    interactionCanvas.setPointerCapture(event.pointerId);
+    capturePointer(event);
     const mm = pointerMm(event);
 
     // Middle button or space-equivalent (shift) pans, whatever is underneath.
@@ -181,11 +225,36 @@
     if (!editor.selection.has(hit.id)) editor.select(hit.id);
 
     const drag = beginDrag(editor.document, editor.selection, mm);
-    gesture = drag ? { kind: 'drag', state: drag } : { kind: 'none' };
+    if (drag) {
+      gesture = { kind: 'drag', state: drag };
+      return;
+    }
+
+    // Nothing movable under the pointer — a locked element, and in practice
+    // almost always the room, which covers the whole canvas. Falling through to
+    // a marquee is what makes dragging across the floor select the tables on
+    // it; without this, a drag anywhere inside the room did nothing at all.
+    gesture = { kind: 'marquee', startMm: mm, rect: { x: mm.x, y: mm.y, width: 0, height: 0 } };
   }
+
+  /**
+   * Pointer events already processed.
+   *
+   * A captured pointer is delivered to the canvas *and* bubbles to the window,
+   * so both listeners see the same event and it must only be applied once.
+   *
+   * Keyed on the event object rather than its timestamp: several moves can
+   * share a millisecond, and a timestamp-based guard silently discarded real
+   * movement — which showed up as a marquee that tracked only part of the drag.
+   * A WeakSet lets the entries be collected with the events themselves.
+   */
+  const handled = new WeakSet<Event>();
 
   function onPointerMove(event: PointerEvent) {
     if (gesture.kind === 'none') return;
+    if (handled.has(event)) return;
+    handled.add(event);
+
     const mm = pointerMm(event);
 
     switch (gesture.kind) {
@@ -227,10 +296,26 @@
   }
 
   function onPointerUp(event: PointerEvent) {
+    if (gesture.kind === 'none') return;
     if (interactionCanvas.hasPointerCapture(event.pointerId)) {
       interactionCanvas.releasePointerCapture(event.pointerId);
     }
+    endGesture();
+  }
 
+  /**
+   * Finish whatever gesture is in progress.
+   *
+   * Separated from the pointer handler because it also has to be reachable
+   * from `mouseup`. Firefox does not reliably deliver `pointerup` for a
+   * captured pointer — moves arrive, the release does not — which left a
+   * marquee stuck open forever and selecting nothing. Mouse events are
+   * delivered consistently in every engine, so they serve as the safety net.
+   *
+   * Idempotent: whichever event arrives first ends the gesture, and the other
+   * finds nothing to do.
+   */
+  function endGesture() {
     if (gesture.kind === 'drag') {
       editor.push(commitDrag(gesture.state));
     } else if (gesture.kind === 'marquee' && gesture.rect.width + gesture.rect.height > 0) {
@@ -290,8 +375,20 @@
 
 <svelte:window onkeydown={onKeyDown} />
 
-<div class="canvas-host" bind:this={host} data-testid="canvas-host">
-  <canvas bind:this={staticCanvas} class="layer"></canvas>
+<div
+  class="canvas-host"
+  bind:this={host}
+  data-testid="canvas-host"
+  data-gesture={gesture.kind}
+  data-rect={gesture.kind === 'marquee' ? `${gesture.rect.width}x${gesture.rect.height}` : '-'}
+>
+  <!--
+    The static layer is tagged so PNG export can find it without the parent
+    having to thread a reference down and back. Only this layer: the
+    interaction canvas holds selection handles and snap guides, which belong to
+    editing rather than to the plan.
+  -->
+  <canvas bind:this={staticCanvas} class="layer" data-plan-layer="static"></canvas>
   <canvas
     bind:this={interactionCanvas}
     class="layer interaction"
@@ -301,6 +398,7 @@
     onpointermove={onPointerMove}
     onpointerup={onPointerUp}
     onpointercancel={onPointerUp}
+    onlostpointercapture={endGesture}
   ></canvas>
 
   <div class="hud">

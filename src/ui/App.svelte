@@ -1,6 +1,7 @@
 <script lang="ts">
   import PlanCanvas from './PlanCanvas.svelte';
   import Toolbar from './Toolbar.svelte';
+  import FileMenu from './FileMenu.svelte';
   import CatalogRail from './CatalogRail.svelte';
   import CapacityPanel from './CapacityPanel.svelte';
   import { Editor } from './editor.svelte';
@@ -15,6 +16,7 @@
     <p>Event floor planning that stays free, works offline, and prints to scale.</p>
   </header>
 
+  <FileMenu {editor} />
   <Toolbar {editor} />
 
   <div class="workspace">

@@ -1,6 +1,28 @@
 # ADR-0011 — Write PDFs ourselves rather than depending on pdf-lib
 
-**Status:** Accepted · 2026-08-08 · _provisional, revisited in Phase 6_
+**Status:** Accepted · 2026-08-08 · **confirmed in Phase 6, no longer provisional**
+
+> **Resolved 2026-08-08.** The open risk below was font embedding. It did not
+> materialise, and `pdf-lib` was not needed after all.
+>
+> PDF guarantees fourteen fonts in every conforming reader. Referencing
+> Helvetica costs one dictionary and **no embedded bytes**. The only thing
+> actually required is a width table so text can be centred and measured — 95
+> numbers from the Adobe Font Metrics, in `pdf-font.ts`.
+>
+> The cost is that a plan is set in Helvetica and nothing else. For dimensions,
+> table labels, and a title block that is not a limitation worth a 19.5 MB
+> unmaintained dependency: architectural drawings have been lettered in one
+> grotesque for a century.
+>
+> Phase 6 shipped multi-page output, tiling, and a title block on this writer.
+> Total runtime dependencies remain zero.
+>
+> One real defect it surfaced: **WinAnsiEncoding is not Latin-1.** Latin-1
+> leaves 0x80–0x9F as control codes; WinAnsi fills them with the typographic set
+> — curly quotes, en and em dashes, the euro, the bullet. Treating them as
+> unrepresentable turned an em dash in a title block into a question mark, and
+> those are exactly the characters people type into an event name.
 
 ## Context
 

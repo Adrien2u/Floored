@@ -55,7 +55,9 @@ describe('ruler test — a 1000 mm reference line', () => {
     const b = projectPoint(end, SCALE.full, page);
 
     const commands: PdfCommand[] = [{ kind: 'line', x1: a.x, y1: a.y, x2: b.x, y2: b.y }];
-    const pdf = buildPdf(toContentStream(commands), page.widthPt, page.heightPt);
+    const pdf = buildPdf([
+      { widthPt: page.widthPt, heightPt: page.heightPt, content: toContentStream(commands) },
+    ]);
 
     const lines = extractLines(pdf);
     expect(lines).toHaveLength(1);
@@ -83,11 +85,13 @@ describe('ruler test — a 1000 mm reference line', () => {
     const a = projectPoint({ x: 0, y: 0 }, scale, page);
     const b = projectPoint({ x: feet(60), y: 0 }, scale, page);
 
-    const pdf = buildPdf(
-      toContentStream([{ kind: 'line', x1: a.x, y1: a.y, x2: b.x, y2: b.y }]),
-      page.widthPt,
-      page.heightPt
-    );
+    const pdf = buildPdf([
+      {
+        widthPt: page.widthPt,
+        heightPt: page.heightPt,
+        content: toContentStream([{ kind: 'line', x1: a.x, y1: a.y, x2: b.x, y2: b.y }]),
+      },
+    ]);
 
     const line = extractLines(pdf)[0];
     expect(line).toBeDefined();
@@ -204,7 +208,7 @@ describe('scale labels', () => {
 
 describe('PDF structure', () => {
   it('emits a parseable single-page document', () => {
-    const pdf = buildPdf(toContentStream([]), 612, 792);
+    const pdf = buildPdf([{ widthPt: 612, heightPt: 792, content: toContentStream([]) }]);
 
     expect(pdf.startsWith('%PDF-1.7')).toBe(true);
     expect(pdf.trimEnd().endsWith('%%EOF')).toBe(true);
@@ -214,7 +218,7 @@ describe('PDF structure', () => {
   });
 
   it('points the xref table at the real byte offset of each object', () => {
-    const pdf = buildPdf(toContentStream([]), 612, 792);
+    const pdf = buildPdf([{ widthPt: 612, heightPt: 792, content: toContentStream([]) }]);
 
     const startxref = /startxref\n(\d+)/.exec(pdf);
     expect(startxref).not.toBeNull();
@@ -222,8 +226,9 @@ describe('PDF structure', () => {
     expect(pdf.slice(xrefOffset, xrefOffset + 4)).toBe('xref');
 
     // Each declared offset must actually land on its object header.
+    // Catalog, pages tree, font, page, content stream.
     const entries = [...pdf.matchAll(/^(\d{10}) 00000 n $/gm)].map((m) => Number(m[1]));
-    expect(entries).toHaveLength(4);
+    expect(entries).toHaveLength(5);
     entries.forEach((offset, i) => {
       expect(pdf.slice(offset)).toMatch(new RegExp(`^${String(i + 1)} 0 obj`));
     });
@@ -231,7 +236,7 @@ describe('PDF structure', () => {
 
   it('declares a content stream length matching the bytes written', () => {
     const stream = toContentStream([{ kind: 'line', x1: 0, y1: 0, x2: 100, y2: 100 }]);
-    const pdf = buildPdf(stream, 612, 792);
+    const pdf = buildPdf([{ widthPt: 612, heightPt: 792, content: stream }]);
 
     const declared = /\/Length (\d+)/.exec(pdf);
     expect(Number(declared?.[1])).toBe(stream.length);
