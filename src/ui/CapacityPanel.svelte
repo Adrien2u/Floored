@@ -52,7 +52,7 @@
   }
 </script>
 
-<aside class="panel">
+<aside class="panel" aria-label="Capacity and clearance">
   <h2>Capacity</h2>
 
   <dl class="metrics">

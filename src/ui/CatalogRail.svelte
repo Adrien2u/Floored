@@ -30,7 +30,7 @@
   }
 </script>
 
-<aside class="rail">
+<aside class="rail" aria-label="Object catalog">
   {#each groups as group (group.label)}
     <section>
       <h2>{group.label}</h2>

@@ -136,7 +136,7 @@
   }
 </script>
 
-<div class="file-menu">
+<div class="file-menu" role="group" aria-label="File and export">
   <div class="group">
     <button
       onclick={() => {
@@ -204,7 +204,9 @@
   </span>
 
   {#if message}
-    <span class="message" data-state={message.kind} data-testid="file-message">{message.text}</span>
+    <span class="message" role="status" data-state={message.kind} data-testid="file-message"
+      >{message.text}</span
+    >
   {/if}
 </div>
 

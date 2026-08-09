@@ -19,7 +19,7 @@
   const ARRAY_PITCH = inches(120);
 </script>
 
-<div class="toolbar">
+<div class="toolbar" role="toolbar" aria-label="Edit and arrange">
   <div class="group">
     <button
       onclick={() => {

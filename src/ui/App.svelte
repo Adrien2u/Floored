@@ -52,6 +52,20 @@
   }
 </script>
 
+<!--
+  The first tab stop. The catalog, the toolbar and the file menu sit between the
+  top of the page and the drawing, and stepping through all of them on every
+  visit is the kind of tax that makes keyboard use exhausting rather than
+  merely slower.
+-->
+<!--
+  tabindex is not redundant here. Safari does not put links in the tab order
+  unless "Press Tab to highlight each item on a webpage" is switched on, which
+  it is not by default — so without this the skip link is unreachable by exactly
+  the users it exists for.
+-->
+<a class="skip" href="#plan" tabindex="0">Skip to the plan</a>
+
 <main>
   <header>
     <h1>Floored</h1>
@@ -144,6 +158,22 @@
     .workspace {
       grid-template-columns: 1fr;
     }
+  }
+
+  .skip {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 10;
+    padding: 0.5rem 0.9rem;
+    background: var(--color-surface);
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+    border-radius: 0 0 6px 0;
+  }
+
+  .skip:focus {
+    left: 0;
   }
 
   .shared,

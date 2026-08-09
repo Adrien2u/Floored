@@ -125,7 +125,7 @@
   }
 </script>
 
-<aside class="panel">
+<aside class="panel" aria-label="Guests and seating">
   <header>
     <h2>Guests</h2>
     <span class="count" data-testid="seated-count">
@@ -210,7 +210,7 @@
   {/if}
 
   {#if editor.pendingGuest}
-    <p class="pending" data-testid="pending-guest">
+    <p class="pending" role="status" data-testid="pending-guest">
       Placing <strong>{findGuest(plan, editor.pendingGuest)?.name}</strong> — click a table.
       <button
         onclick={() => {
@@ -221,7 +221,7 @@
   {/if}
 
   {#if conflicts.length > 0}
-    <p class="warn" data-testid="seating-conflicts">
+    <p class="warn" role="status" data-testid="seating-conflicts">
       {conflicts.length} seating {conflicts.length === 1 ? 'conflict' : 'conflicts'}
     </p>
   {/if}
@@ -310,7 +310,7 @@
   {/if}
 
   {#if message}
-    <p class="message" data-testid="guest-message">{message}</p>
+    <p class="message" role="status" data-testid="guest-message">{message}</p>
   {/if}
 </aside>
 

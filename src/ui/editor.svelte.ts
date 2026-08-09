@@ -167,6 +167,36 @@ export class Editor {
     this.selection = new Set();
   }
 
+  /**
+   * Move the selection to the next or previous element in draw order.
+   *
+   * The keyboard equivalent of clicking one. Without it the canvas is reachable
+   * by keyboard but inert — nudge, rotate and delete all act on a selection,
+   * and every other way of making one needs a pointer (WCAG 2.1.1).
+   *
+   * Hidden elements are skipped: they cannot be acted on, so stopping there
+   * would look like the key had done nothing.
+   */
+  stepSelection(step: 1 | -1): void {
+    const visible = this.document.elements.filter((e) => !this.hiddenLayers.has(e.layer));
+    if (visible.length === 0) return;
+
+    const current = [...this.selection][0];
+    const index = current === undefined ? -1 : visible.findIndex((e) => e.id === current);
+
+    // From nothing, forwards starts at the first element and backwards at the
+    // last, which is what someone pressing the key expects either way.
+    const next =
+      index === -1
+        ? step === 1
+          ? 0
+          : visible.length - 1
+        : (index + step + visible.length) % visible.length;
+
+    const element = visible[next];
+    if (element) this.select(element.id);
+  }
+
   toggleLayer(layer: string): void {
     const next = new Set(this.hiddenLayers);
     if (next.has(layer)) next.delete(layer);

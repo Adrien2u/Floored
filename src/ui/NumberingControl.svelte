@@ -31,7 +31,7 @@
   const count = $derived(preview.size);
 </script>
 
-<div class="numbering">
+<div class="numbering" role="group" aria-label="Table numbering">
   <span class="label">Number tables</span>
 
   <select bind:value={pattern} aria-label="Numbering pattern" data-testid="numbering-pattern">

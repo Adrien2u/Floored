@@ -24,6 +24,38 @@
 
   const { editor }: Props = $props();
 
+  /**
+   * The plan, in words.
+   *
+   * Names what is on the drawing and what is selected, because the canvas
+   * itself is opaque to anything that is not looking at it.
+   */
+  const planSummary = $derived.by(() => {
+    const total = editor.document.elements.length;
+    const seats = editor.document.elements.reduce((sum, e) => sum + seatCount(e), 0);
+
+    const parts = [
+      total === 0
+        ? 'Empty plan.'
+        : `${String(total)} ${total === 1 ? 'element' : 'elements'}, ${String(seats)} seats.`,
+    ];
+
+    const selected = [...editor.selection]
+      .map((id) => editor.document.elements.find((e) => e.id === id))
+      .filter((e) => e !== undefined);
+
+    if (selected.length === 1 && selected[0]) {
+      const one = selected[0];
+      parts.push(`Selected: ${one.label === '' ? one.type : one.label}.`);
+    } else if (selected.length > 1) {
+      parts.push(`${String(selected.length)} selected.`);
+    } else {
+      parts.push('Nothing selected.');
+    }
+
+    return parts.join(' ');
+  });
+
   let host: HTMLDivElement;
   let staticCanvas: HTMLCanvasElement;
   let interactionCanvas: HTMLCanvasElement;
@@ -364,7 +396,25 @@
     editor.select(hit.id);
   }
 
+  /**
+   * True when the keystroke belongs to something the user is typing into.
+   *
+   * Without this, searching the guest list for "Adam" and pressing Backspace to
+   * fix a typo deleted the selected tables instead — the shortcuts are bound to
+   * the window, and a text field never got the chance to say the key was
+   * already spoken for.
+   */
+  function isTyping(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target.isContentEditable) return true;
+
+    const tag = target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  }
+
   function onKeyDown(event: KeyboardEvent) {
+    if (isTyping(event.target)) return;
+
     const mod = event.ctrlKey || event.metaKey;
 
     if (mod && event.key.toLowerCase() === 'z') {
@@ -397,6 +447,15 @@
       return;
     }
 
+    // Stepping through elements is the keyboard equivalent of clicking one.
+    // Without it the canvas is reachable but inert: nudge and delete both need
+    // a selection, and every other way of making one needs a pointer.
+    if (event.key === ']' || event.key === '[') {
+      event.preventDefault();
+      editor.stepSelection(event.key === ']' ? 1 : -1);
+      return;
+    }
+
     const arrows: Record<string, { x: number; y: number }> = {
       ArrowLeft: { x: -1, y: 0 },
       ArrowRight: { x: 1, y: 0 },
@@ -413,9 +472,21 @@
 
 <svelte:window onkeydown={onKeyDown} />
 
+<!--
+  A canvas editor is an application widget, and an application widget has to be
+  focusable or the keyboard cannot reach it at all. The rule this suppresses is
+  aimed at decorative elements given a tab stop by accident; here the tab stop
+  is the point, and the commands it exposes are named in the label.
+-->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   class="canvas-host"
   bind:this={host}
+  id="plan"
+  tabindex="0"
+  role="application"
+  aria-label="Floor plan. Bracket keys step through elements, arrow keys move the selection, Delete removes it."
+  aria-describedby="plan-summary"
   data-testid="canvas-host"
   data-gesture={gesture.kind}
   data-rect={gesture.kind === 'marquee' ? `${gesture.rect.width}x${gesture.rect.height}` : '-'}
@@ -441,6 +512,17 @@
     onlostpointercapture={endGesture}
   ></canvas>
 
+  <!--
+    The drawing is pixels, and pixels say nothing to a screen reader. This is
+    the same information in words: what the plan holds, and what is selected
+    right now. It is not a replacement for seeing the layout — no honest text
+    is — but it makes the state of the editor audible, which is what the
+    keyboard commands act on. See docs/ACCESSIBILITY.md.
+  -->
+  <p id="plan-summary" class="sr-only" data-testid="plan-summary" aria-live="polite">
+    {planSummary}
+  </p>
+
   <div class="hud">
     <button
       onclick={() => {
@@ -453,6 +535,22 @@
 </div>
 
 <style>
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .canvas-host:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
   .canvas-host {
     position: relative;
     width: 100%;

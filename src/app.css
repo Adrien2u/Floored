@@ -9,7 +9,7 @@
   /* Amber is only ever "something is wrong"; the accent is only ever
      "this is selected". Sharing one hue for both makes a plan harder to
      read at exactly the moment it matters most. */
-  --color-warn: #b45309;
+  --color-warn: #a94d07;
   --color-warn-soft: #fdf0dc;
 
   color-scheme: light dark;
@@ -44,4 +44,40 @@
 body {
   margin: 0;
   min-height: 100vh;
+}
+
+/*
+ * Target size.
+ *
+ * WCAG 2.2 asks for 24 × 24 CSS pixels at AA (2.5.8). Every control in the app
+ * measured 27px tall, which passes on paper and is miserable with a fingertip
+ * on a tablet in a venue — the place this app is most likely to be used
+ * standing up. 32px is the floor now, with the dense guest list the single
+ * deliberate exception: 200 names have to stay scannable, and every row there
+ * has a larger equivalent in the table detail beside it.
+ */
+button,
+select,
+input:not([type='checkbox']):not([type='radio']),
+a.skip {
+  min-height: 32px;
+}
+
+/* Buttons that are really links inside a sentence keep the text's own height. */
+button.link {
+  min-height: 0;
+}
+
+/*
+ * A checkbox is 13px in every engine, and the thing a person actually aims at
+ * is its label. Growing the label rather than the box keeps the control looking
+ * like a checkbox while giving it a target worth hitting.
+ */
+input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+
+label:has(> input[type='checkbox']) {
+  min-height: 32px;
 }
