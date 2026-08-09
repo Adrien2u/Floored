@@ -225,6 +225,10 @@
 
   .group {
     display: flex;
+    /* Wraps, or the export row runs off the side of a phone. The outer menu
+       already wrapped; the groups inside it did not, so a single group of four
+       buttons stayed one unbreakable line 350px wide. */
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.25rem;
   }

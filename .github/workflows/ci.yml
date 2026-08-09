@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # Both names: the repository's default branch is master, and a workflow
+    # that only watches main is a workflow that never runs on a push.
+    branches: [main, master]
   pull_request:
 
 concurrency:
