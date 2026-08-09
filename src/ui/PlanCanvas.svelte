@@ -10,6 +10,7 @@
     screenToMm,
   } from '$lib/render/viewport';
   import { elementAt, elementsInMarquee } from '$lib/render/scene';
+  import { seatCount } from '$lib/document/element';
   import { documentBounds } from '$lib/document/document';
   import { DEFAULT_GRID_MM } from '$lib/geometry/snap';
   import { beginDrag, updateDrag, commitDrag, type DragState } from '$lib/tools/drag';
@@ -207,6 +208,17 @@
 
     const hit = elementAt(editor.document, mm, editor.hiddenLayers);
 
+    // A guest picked up in the panel is placed by clicking a table. This is the
+    // single-pointer alternative WCAG 2.5.7 requires for every drag operation,
+    // and it is checked before selection so the click means "place", not
+    // "select something else".
+    if (editor.pendingGuest && hit && seatCount(hit) > 0) {
+      editor.placeGuestAt(hit.id);
+      editor.select(hit.id);
+      gesture = { kind: 'none' };
+      return;
+    }
+
     if (!hit) {
       if (!event.ctrlKey && !event.metaKey) editor.clearSelection();
       gesture = { kind: 'marquee', startMm: mm, rect: { x: mm.x, y: mm.y, width: 0, height: 0 } };
@@ -326,6 +338,32 @@
     gesture = { kind: 'none' };
   }
 
+  /**
+   * Allow a guest dragged from the panel to be dropped on a table.
+   *
+   * `preventDefault` on dragover is what marks the canvas as a drop target;
+   * without it the drop never fires and the interaction silently does nothing.
+   */
+  function onDragOver(event: DragEvent) {
+    if (event.dataTransfer?.types.includes('text/floored-guest')) event.preventDefault();
+  }
+
+  function onDrop(event: DragEvent) {
+    const guestId = event.dataTransfer?.getData('text/floored-guest');
+    if (!guestId) return;
+    event.preventDefault();
+
+    const rect = host.getBoundingClientRect();
+    const mm = screenToMm(event.clientX - rect.left, event.clientY - rect.top, editor.viewport);
+
+    const hit = elementAt(editor.document, mm, editor.hiddenLayers);
+    if (!hit || seatCount(hit) === 0) return;
+
+    editor.pendingGuest = guestId;
+    editor.placeGuestAt(hit.id);
+    editor.select(hit.id);
+  }
+
   function onKeyDown(event: KeyboardEvent) {
     const mod = event.ctrlKey || event.metaKey;
 
@@ -398,6 +436,8 @@
     onpointermove={onPointerMove}
     onpointerup={onPointerUp}
     onpointercancel={onPointerUp}
+    ondragover={onDragOver}
+    ondrop={onDrop}
     onlostpointercapture={endGesture}
   ></canvas>
 

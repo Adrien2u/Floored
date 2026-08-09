@@ -204,3 +204,57 @@ The library benchmark that informed ADR-0001 measured _interactive scene-graph
 nodes_, each carrying event handling and transform state. Drawn primitives here
 are immediate-mode fills with no per-shape overhead, because chairs are not
 individually interactive — clicking a chair selects its table.
+
+---
+
+## 7. Seating interface research (Phase 7)
+
+### WCAG 2.5.7 — dragging movements
+
+New in WCAG 2.2 and **Level AA**, which [ROADMAP.md](ROADMAP.md) already commits
+to. Every function achieved by dragging must also be achievable with a single
+pointer, unless dragging is essential.
+
+Drag-to-seat is not essential — click-to-select then click-to-place does the same
+job. So the alternative is not a polish item to add in the accessibility phase;
+it is a conformance requirement that shapes the interaction from the start.
+
+Sources: [WCAG 2.5.7 guide](https://testparty.ai/blog/wcag-2-5-7-dragging-movements-2025-guide) ·
+[non-dragging alternatives](https://www.accessitree.com/wcag-ultimate-guide/provide-non-dragging-alternatives-for-dragging-movements/)
+
+### What goes wrong in competing tools
+
+Reviews of a popular wedding seating app describe three failures worth naming,
+because each maps onto a decision already made here:
+
+| Reported failure                                                                                        | What prevents it in Floored                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The guest list duplicates guests — two or three of the same person at one table."                      | Import reconciles on a stable key and collapses duplicate rows ([ADR-0013](adr/ADR-0013-seating-model.md)). Tested.                            |
+| "Group a guest with their plus one and it removes the original name, replacing it with the plus one's." | A group is a first-class object with members and a host. Nothing rewrites a name to express a relationship.                                    |
+| "Deleted tables and centrepieces reappear on their own — 20 to 30 times."                               | Every change is a command with an exact inverse, and the double-swap case is pinned by a test ([ADR-0003](adr/ADR-0003-document-and-undo.md)). |
+
+These are not exotic bugs. They are what happens when relationships are encoded
+by mutating the data they describe, which is the same mistake the shadow-mapping
+rule in ADR-0013 exists to prevent.
+
+### The layout pattern
+
+**Two-panel selector** (list-detail with linked selection): a list beside a
+canvas, where selecting in either surface updates the other. Selecting a table
+brings its guests forward; selecting a guest highlights their table.
+
+That linkage is the direct answer to the top-ranked complaint in §2 — users
+"constantly clicking between different tools to select and alter seats". The
+tool-switching disappears when the two views are one selection.
+
+Sources: [two-panel selector](https://designinginterfaces.com/patterns/two-panel-selector/) ·
+[split view](https://cloudscape.design/patterns/resource-management/view/split-view/)
+
+### Interface rules taken from this
+
+1. **Every drag has a click equivalent.** Select a guest, click a seat.
+2. **Selection is shared between the list and the plan**, in both directions.
+3. **Search before scroll.** A 200-guest list is unusable by scrolling; the
+   search field is the primary way in, and an empty result says what to try.
+4. **Names truncate with an ellipsis**, never wrap or overflow their row.
+5. **Nothing is destructive.** Seating, unseating, and moving are all one undo.

@@ -10,8 +10,22 @@
  */
 
 import { createDocument, documentBounds, type FlooredDocument } from '$lib/document/document';
-import { addCommand, batch, type Command } from '$lib/document/commands';
+import { addCommand, batch, modifyCommand, type Command } from '$lib/document/commands';
+import { seatCount } from '$lib/document/element';
 import type { CatalogItem } from '$lib/catalog/catalog';
+import {
+  createSeatingPlan,
+  seatGuest,
+  unseatGuest,
+  clearTable,
+  guestsAt,
+  pruneAssignments,
+  type SeatingPlan,
+  type Guest,
+} from '$lib/seating/guest';
+import { autoAssign, type AssignResult, type TableCapacity } from '$lib/seating/assign';
+import { numberingLabels, type NumberingOptions } from '$lib/seating/numbering';
+
 import {
   createHistory,
   push,
@@ -42,6 +56,9 @@ import { inches } from '$lib/geometry/units';
 /** Offset applied to duplicates, so a copy is visibly not its original. */
 const DUPLICATE_OFFSET_MM = inches(12);
 
+/** Seating changes retained for undo. Small: they are cheap and rarely deep. */
+const SEATING_HISTORY_LIMIT = 100;
+
 export class Editor {
   #state = $state<HistoryState>({
     document: createDocument(),
@@ -53,6 +70,24 @@ export class Editor {
   hiddenLayers = $state<ReadonlySet<string>>(new Set());
   gridMm = $state(DEFAULT_GRID_MM);
   snapEnabled = $state(true);
+
+  /**
+   * Guests, groups, and seat assignments.
+   *
+   * Held beside the document rather than inside it: guests have no geometry,
+   * so the renderer, the spatial scan, and the undo stack have no business
+   * reasoning about them (ADR-0013).
+   */
+  seating = $state<SeatingPlan>(createSeatingPlan());
+
+  /**
+   * The guest picked up but not yet placed.
+   *
+   * This is the click-to-place half of the interaction, and it is not optional:
+   * WCAG 2.5.7 (Level AA, new in 2.2) requires every dragging function to have
+   * a single-pointer alternative. Select a guest, click a seat.
+   */
+  pendingGuest = $state<string | null>(null);
 
   constructor(initial?: FlooredDocument) {
     if (initial) this.#state = { document: initial, history: createHistory() };
@@ -218,6 +253,132 @@ export class Editor {
     this.clearSelection();
     this.hiddenLayers = new Set();
     this.fit();
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Seating
+   *
+   * Seating changes do not go through the document's undo stack: they are a
+   * different kind of state, and mixing them would make Ctrl+Z after moving a
+   * table sometimes unseat a guest instead. Seating has its own small history.
+   * ---------------------------------------------------------------- */
+
+  #seatingHistory = $state<SeatingPlan[]>([]);
+
+  get canUndoSeating(): boolean {
+    return this.#seatingHistory.length > 0;
+  }
+
+  #recordSeating(next: SeatingPlan): void {
+    if (next === this.seating) return;
+    this.#seatingHistory = [...this.#seatingHistory.slice(-SEATING_HISTORY_LIMIT), this.seating];
+    this.seating = next;
+  }
+
+  undoSeating(): void {
+    const previous = this.#seatingHistory[this.#seatingHistory.length - 1];
+    if (!previous) return;
+    this.#seatingHistory = this.#seatingHistory.slice(0, -1);
+    this.seating = previous;
+  }
+
+  setSeating(plan: SeatingPlan): void {
+    this.#recordSeating(plan);
+  }
+
+  /** Seats a table offers, for the assigner and for pruning. */
+  seatCapacities(): Map<string, number> {
+    const capacities = new Map<string, number>();
+    for (const element of this.document.elements) {
+      const seats = seatCount(element);
+      if (seats > 0) capacities.set(element.id, seats);
+    }
+    return capacities;
+  }
+
+  tableCapacities(): TableCapacity[] {
+    return [...this.seatCapacities()].map(([elementId, seats]) => ({ elementId, seats }));
+  }
+
+  /** Pick a guest up, or put them down again by picking the same one twice. */
+  pickUpGuest(guestId: string): void {
+    this.pendingGuest = this.pendingGuest === guestId ? null : guestId;
+  }
+
+  /**
+   * Place the picked-up guest at a table, in the first free seat.
+   *
+   * Seat-precise placement is available by dropping onto a specific chair; this
+   * is the forgiving version, and the one a keyboard or single-pointer user
+   * gets.
+   */
+  placeGuestAt(elementId: string): void {
+    const guestId = this.pendingGuest;
+    if (!guestId) return;
+
+    const capacity = this.seatCapacities().get(elementId) ?? 0;
+    const taken = new Set(guestsAt(this.seating, elementId).map((g) => g.seat?.seatIndex));
+
+    for (let index = 0; index < capacity; index++) {
+      if (taken.has(index)) continue;
+      this.#recordSeating(seatGuest(this.seating, guestId, { elementId, seatIndex: index }));
+      this.pendingGuest = null;
+      return;
+    }
+
+    // Full table: say nothing here, the panel reports it. Keeping the guest in
+    // hand is kinder than dropping them silently.
+  }
+
+  seatGuestAt(guestId: string, elementId: string, seatIndex: number): void {
+    this.#recordSeating(seatGuest(this.seating, guestId, { elementId, seatIndex }));
+    this.pendingGuest = null;
+  }
+
+  unseatGuest(guestId: string): void {
+    this.#recordSeating(unseatGuest(this.seating, guestId));
+  }
+
+  clearTable(elementId: string): void {
+    this.#recordSeating(clearTable(this.seating, elementId));
+  }
+
+  autoAssign(): AssignResult {
+    const result = autoAssign(this.seating, this.tableCapacities());
+    this.#recordSeating(result.plan);
+    return result;
+  }
+
+  toggleAssignmentLock(): void {
+    this.#recordSeating({ ...this.seating, assignmentsLocked: !this.seating.assignmentsLocked });
+  }
+
+  /**
+   * Drop assignments whose seat stopped existing.
+   *
+   * Called after the plan's tables change. Returns who was orphaned so the UI
+   * can say so — a guest who quietly loses their seat is worse than one who was
+   * never seated.
+   */
+  pruneSeating(): Guest[] {
+    const { plan, orphaned } = pruneAssignments(this.seating, this.seatCapacities());
+    if (orphaned.length > 0) this.#recordSeating(plan);
+    return orphaned;
+  }
+
+  /** Apply a numbering scheme. Labels only — no guest moves (ADR-0013). */
+  applyNumbering(options: NumberingOptions): void {
+    const labels = numberingLabels(this.document, options);
+    const commands: Command[] = [];
+
+    for (const element of this.document.elements) {
+      const label = labels.get(element.id);
+      if (label === undefined || element.label === label) continue;
+      const command = modifyCommand(this.document, { ...element, label });
+      if (command) commands.push(command);
+    }
+
+    this.pushBatch('Number tables', commands);
   }
 
   fit(): void {

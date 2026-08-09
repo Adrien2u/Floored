@@ -4,6 +4,8 @@
   import FileMenu from './FileMenu.svelte';
   import CatalogRail from './CatalogRail.svelte';
   import CapacityPanel from './CapacityPanel.svelte';
+  import GuestPanel from './GuestPanel.svelte';
+  import NumberingControl from './NumberingControl.svelte';
   import { Editor } from './editor.svelte';
   import { sampleBallroom } from './sample-plan';
 
@@ -18,11 +20,15 @@
 
   <FileMenu {editor} />
   <Toolbar {editor} />
+  <NumberingControl {editor} />
 
   <div class="workspace">
     <CatalogRail {editor} />
     <PlanCanvas {editor} />
-    <CapacityPanel {editor} />
+    <div class="right">
+      <GuestPanel {editor} />
+      <CapacityPanel {editor} />
+    </div>
   </div>
 
   <p class="hint">
@@ -57,9 +63,16 @@
 
   .workspace {
     display: grid;
-    grid-template-columns: 180px minmax(0, 1fr) 240px;
+    grid-template-columns: 170px minmax(0, 1fr) 260px;
     gap: 0.75rem;
     align-items: start;
+  }
+
+  .right {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
   }
 
   @media (max-width: 1000px) {
