@@ -1,0 +1,4 @@
+# No contact_links here on purpose: they take absolute URLs, and a hard-coded
+# repository path is wrong the moment the project is forked or moved. GitHub
+# surfaces SECURITY.md by itself, which is where vulnerability reports go.
+blank_issues_enabled: true

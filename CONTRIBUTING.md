@@ -17,8 +17,12 @@ backend and never will.
 Before opening a PR, run exactly what CI runs:
 
 ```bash
-npm run verify
+npm run verify        # format, lint, types, unit tests, build, bundle budget
+npx playwright test   # the browser matrix — installs its own browsers first
 ```
+
+The first `playwright test` run downloads three browser engines, which is the
+one part of setup that is not instant. Everything else is `npm install`.
 
 ## Where things live
 
@@ -36,7 +40,7 @@ Issues labelled `good first issue` are real work, not busywork. The most valuabl
 ones need domain knowledge more than editor internals:
 
 - **Object catalog** — adding furniture with correct real-world dimensions
-- **Templates** — wedding, gala, classroom, theatre, cabaret layouts
+- **Templates** — more arrangements, or better numbers in the seven that exist
 - **Unit parsing** — the ways planners actually type dimensions
 - **Documentation** — if something confused you, that's a bug in the docs
 
@@ -64,6 +68,10 @@ Types: `feat` `fix` `refactor` `docs` `test` `chore` `perf` `ci`
 - Domain logic in `src/lib/`, never in components.
 - Unit tests colocated: `units.ts` → `units.test.ts` beside it.
 
+**Accessibility:** every drag needs a click-or-key equivalent (WCAG 2.5.7), and
+new colours have to pass `src/ui/contrast.test.ts`, which reads the real
+palette. See [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
+
 **Tests:** anything with a branch, a loop, or a calculation needs one. Geometry
 and capacity maths need thorough ones — that's where bugs are silent and
 expensive. Trivial one-liners don't.
@@ -82,7 +90,7 @@ still fails the build.
 
 ## Pull requests
 
-1. Branch from `main`.
+1. Branch from the default branch.
 2. Keep the diff scoped to one thing.
 3. `npm run verify` green.
 4. Describe what changed and why. Link the issue.
@@ -104,10 +112,9 @@ Do not open a public issue for a security problem. See
 
 ## Governance
 
-Currently BDFL — one maintainer decides, and says so plainly rather than
-implying consensus that doesn't exist. If contributor volume justifies it, this
-becomes a maintainer team, and that change will be documented here rather than
-happening quietly.
+One maintainer decides, and says so plainly rather than implying a consensus
+that does not exist. [GOVERNANCE.md](GOVERNANCE.md) sets out how that changes,
+and the short list of things that are settled rather than open.
 
 ## Code of conduct
 

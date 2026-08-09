@@ -15,14 +15,14 @@ Floored has no server, no accounts, and no telemetry. There is no backend to
 breach and no user database to leak. That removes most of the usual categories
 and leaves a smaller, specific set:
 
-| Concern                         | Where it applies                                                                                         |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Malicious `.floored` file       | Parsing an untrusted document must not execute anything or exhaust memory                                |
-| Malicious CSV/XLSX guest import | Formula injection into exported spreadsheets; parser resource exhaustion                                 |
-| Untrusted SVG or image import   | SVG can carry scripts — must be sanitized before render                                                  |
-| Share-link payloads             | Fragment content is untrusted input and is parsed like any other document                                |
-| Supply chain                    | A compromised dependency ships directly to users; see [ADR-0010](docs/adr/ADR-0010-dependency-policy.md) |
-| XSS via user-supplied text      | Guest names, table labels, event titles all reach the DOM and the canvas                                 |
+| Concern                       | Where it applies                                                                                         |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Malicious `.floored` file     | Parsing an untrusted document must not execute anything or exhaust memory                                |
+| Malicious CSV guest import    | Parser resource exhaustion; names that reach the PDF, the canvas, and the DOM                            |
+| Untrusted SVG or image import | SVG can carry scripts — must be sanitized before render                                                  |
+| Share-link payloads           | Fragment content is untrusted input and is parsed like any other document                                |
+| Supply chain                  | A compromised dependency ships directly to users; see [ADR-0010](docs/adr/ADR-0010-dependency-policy.md) |
+| XSS via user-supplied text    | Guest names, table labels, event titles all reach the DOM and the canvas                                 |
 
 ## Privacy note that matters more than it looks
 

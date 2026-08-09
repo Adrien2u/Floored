@@ -1,0 +1,65 @@
+name: Bug report
+description: Something behaves differently from how it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The app runs entirely in your browser, so
+        there are no server logs to check — what you write here is all there is
+        to go on.
+
+        **Please do not attach a `.floored` file containing real guest names.**
+        A plan with the furniture and a couple of made-up names reproduces
+        almost everything.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, and what the app did instead of what you expected.
+      placeholder: |
+        I imported a CSV with 120 guests and clicked Auto-assign. Sixteen guests
+        stayed in the unseated list even though there were empty seats at T4.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered, starting from a fresh tab.
+      placeholder: |
+        1. Open the app and pick the Gala template
+        2. Import the attached CSV
+        3. Click Auto-assign
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome or Edge
+        - Firefox
+        - Safari
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The commit or release you are running, if you know it.
+
+  - type: checkboxes
+    id: offline
+    attributes:
+      label: Anything that might matter
+      options:
+        - label: It happened while offline
+        - label: It happened in an installed copy rather than a browser tab
+        - label: The plan came from a share link
+        - label: I can reproduce it every time

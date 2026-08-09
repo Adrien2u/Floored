@@ -1,0 +1,48 @@
+name: Object or template request
+description: A table, fixture, or arrangement the catalog is missing
+labels: [catalog, good first issue]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The catalog is the easiest place to contribute, and the one where
+        domain knowledge matters more than knowing the codebase. If you know
+        what a thing actually measures, you know more than the code does.
+
+        Every dimension in the catalog carries a source. That is the whole
+        standard here — a number a planner can check.
+
+  - type: input
+    id: object
+    attributes:
+      label: What is missing
+      placeholder: 66" round table, or a cabaret-with-head-table arrangement
+    validations:
+      required: true
+
+  - type: textarea
+    id: dimensions
+    attributes:
+      label: Dimensions and seat count
+      description: Real measurements, in whichever units you think in.
+      placeholder: |
+        66" diameter, seats 9 comfortably and 11 tight.
+    validations:
+      required: true
+
+  - type: textarea
+    id: source
+    attributes:
+      label: Where the numbers come from
+      description: >
+        A rental catalogue, a venue spec sheet, a code reference, or twenty
+        years of setting these up. Any of those is a source; "it looks about
+        right" is not.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Where it is used
+      description: The kind of event or region, if it is not universal.

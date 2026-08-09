@@ -5,6 +5,15 @@ import { fileURLToPath, URL } from 'node:url';
 import { serviceWorker } from './scripts/service-worker-plugin.mjs';
 
 export default defineConfig({
+  /*
+   * Relative, not absolute.
+   *
+   * GitHub Pages serves a project site from `/<repo>/`, and absolute `/assets/`
+   * URLs 404 there — the app would deploy green and load blank. Relative paths
+   * work from a subdirectory, from a custom domain, and from a file:// copy
+   * somebody unzipped, which is the same portability the file format promises.
+   */
+  base: './',
   plugins: [svelte(), serviceWorker()],
   resolve: {
     alias: {

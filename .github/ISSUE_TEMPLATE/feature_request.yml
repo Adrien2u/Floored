@@ -1,0 +1,41 @@
+name: Feature request
+description: Something the app should do and does not
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The project has a stated scope and some permanent exclusions — accounts,
+        telemetry, cloud storage, payments, and DWG import. Those are settled,
+        not open questions, and a request for one of them will be closed with a
+        pointer rather than a debate.
+
+        Everything else is genuinely open.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What are you trying to do, and what makes it hard today? Describe the
+        situation rather than the feature — the best solution is often not the
+        one either of us thought of first.
+      placeholder: |
+        I run three events a week in the same room and rebuild the same layout
+        every time.
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do instead today
+      description: Including "I use another tool for this part".
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you had in mind
+      description: Optional. A rough idea is fine; so is no idea at all.
