@@ -42,6 +42,9 @@ exporter — the property the to-scale print requirement depends on.
 | `src/lib/catalog/`     | Table/chair/stage definitions with verified real dimensions                | 5       |
 | `src/lib/export/`      | Scale projection, vector PDF writer, PNG, SVG, day-of sheets               | 1, 6, 7 |
 | `src/lib/seating/`     | Guest model, CSV import, assignment, table numbering                       | 7       |
+| `src/lib/templates/`   | The seven starting arrangements                                            | 8       |
+| `src/lib/share/`       | Compressing a plan into a URL fragment                                     | 8       |
+| `src/lib/pwa/`         | Service worker registration and the update prompt                          | 8       |
 | `src/ui/`              | Svelte components. Presentation only — no domain logic.                    | 3+      |
 | `tests/e2e/`           | Playwright specs                                                           | 4+      |
 | `tests/fixtures/`      | Sample `.floored` files, one per released schema version                   | 2+      |

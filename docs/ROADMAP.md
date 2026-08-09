@@ -17,9 +17,14 @@ MVP ships whole. There is no partial public release.
 | **5** Catalog + capacity     | Object library with verified dimensions, custom objects, measure tool, seat roll-up, clearance warnings, occupant-load estimate | Capacity maths matches the reference table in [RESEARCH.md](RESEARCH.md#3-domain-constants)   |
 | **6** Export                 | Text and font embedding, page tiling, title block, print styling, PNG, SVG                                                      | Whole-plan export measures true; visual regression on emitted output                          |
 | **7** Guest list + seating   | CSV import with reconciliation, groups, drag- and click-to-seat, separations, auto-assign, table numbering, day-of sheets       | Assignment passes hand-built cases; messy CSV fixtures import; day-of sheets carry every name |
-| **8** PWA + onboarding       | Workbox, install flow, update prompt, templates, empty state, share links                                                       | Works with the network disabled; Lighthouse PWA pass                                          |
+| **8** PWA + onboarding       | Hand-rolled service worker, install flow, prompt-on-update, seven templates, start screen, share links                          | Works with the network disabled; installable with a maskable icon                             |
 | **9** Accessibility + polish | Keyboard operation, WCAG 2.2 AA on chrome and panels, canvas fallback, browser matrix, tablet touch                             | axe passes in CI; manual keyboard walkthrough; four-browser matrix green                      |
 | **10** Launch                | Docs site, CONTRIBUTING, templates, governance, Pages deploy, domain                                                            | A stranger clones and runs it in under 10 minutes                                             |
+
+Workbox is not in phase 8. The app is a static shell with hashed filenames and
+no runtime data, which is the one case where precaching is a list and a fetch
+handler — both `vite-plugin-pwa` and Workbox would ship a runtime into a bundle
+that has none. The worker is generated at build time by a plugin in `scripts/`.
 
 XLSX import is not in phase 7. Every spreadsheet exports CSV, and the parsers
 that read `.xlsx` are a zip reader and an XML parser away from the zero-runtime
