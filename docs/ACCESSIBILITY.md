@@ -74,7 +74,11 @@ deficiencies where red against green does not.
 ## Touch and tablet
 
 Pointer events throughout, so a stylus or finger drives the same code as a
-mouse.
+mouse. Two fingers pinch to zoom and pan together — without it a tablet had no
+way to zoom at all, since there is no wheel and no keyboard in a venue, and a
+plan that cannot be zoomed cannot be checked. A pinch that starts on a table
+abandons the drag rather than committing it: the user was reaching to zoom, not
+choosing to move something two millimetres.
 
 WCAG 2.2 asks for 24 × 24 CSS pixels at AA (2.5.8). Every control measured 27px
 until this was checked — passing on paper, and miserable with a fingertip on a

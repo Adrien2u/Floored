@@ -72,9 +72,30 @@
     | { kind: 'none' }
     | { kind: 'pan'; lastPx: { x: number; y: number } }
     | { kind: 'drag'; state: DragState }
-    | { kind: 'marquee'; startMm: { x: number; y: number }; rect: Rect };
+    | { kind: 'marquee'; startMm: { x: number; y: number }; rect: Rect }
+    | { kind: 'pinch'; distance: number; centrePx: { x: number; y: number } };
 
   let gesture = $state<Gesture>({ kind: 'none' });
+
+  /**
+   * Every pointer currently down, by id.
+   *
+   * Needed for pinch: a two-finger gesture is two independent pointers, and
+   * neither event knows about the other. Without this the app could not be
+   * zoomed on a tablet at all — there is no wheel and no keyboard, and a plan
+   * you cannot zoom is a plan you cannot check.
+   */
+  const activePointers = new Map<number, { x: number; y: number }>();
+
+  function pinchOf(): { distance: number; centrePx: { x: number; y: number } } | null {
+    const [a, b] = [...activePointers.values()];
+    if (!a || !b) return null;
+
+    return {
+      distance: Math.hypot(a.x - b.x, a.y - b.y),
+      centrePx: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+    };
+  }
 
   function readPalette(): Palette {
     const style = getComputedStyle(host);
@@ -229,6 +250,19 @@
   }
 
   function onPointerDown(event: PointerEvent) {
+    activePointers.set(event.pointerId, pointerPx(event));
+
+    // A second finger turns whatever was happening into a pinch. Abandoning the
+    // first gesture rather than committing it is deliberate: the user was
+    // reaching to zoom, not choosing to move a table two millimetres.
+    if (activePointers.size === 2) {
+      const pinch = pinchOf();
+      if (pinch) {
+        gesture = { kind: 'pinch', ...pinch };
+        return;
+      }
+    }
+
     capturePointer(event);
     const mm = pointerMm(event);
 
@@ -295,9 +329,35 @@
   const handled = new WeakSet<Event>();
 
   function onPointerMove(event: PointerEvent) {
-    if (gesture.kind === 'none') return;
     if (handled.has(event)) return;
     handled.add(event);
+
+    if (activePointers.has(event.pointerId)) {
+      activePointers.set(event.pointerId, pointerPx(event));
+    }
+
+    if (gesture.kind === 'pinch') {
+      const pinch = pinchOf();
+      // Both the spread and the drift of the midpoint are applied, so a pinch
+      // that wanders across the screen pans as well as zooms — which is what
+      // two fingers on a map do everywhere else.
+      if (pinch && pinch.distance > 0 && gesture.distance > 0) {
+        editor.viewport = panByPixels(
+          editor.viewport,
+          pinch.centrePx.x - gesture.centrePx.x,
+          pinch.centrePx.y - gesture.centrePx.y
+        );
+        editor.viewport = zoomAt(
+          editor.viewport,
+          pinch.distance / gesture.distance,
+          pinch.centrePx
+        );
+        gesture = { kind: 'pinch', ...pinch };
+      }
+      return;
+    }
+
+    if (gesture.kind === 'none') return;
 
     const mm = pointerMm(event);
 
@@ -340,10 +400,21 @@
   }
 
   function onPointerUp(event: PointerEvent) {
-    if (gesture.kind === 'none') return;
+    activePointers.delete(event.pointerId);
+
     if (interactionCanvas.hasPointerCapture(event.pointerId)) {
       interactionCanvas.releasePointerCapture(event.pointerId);
     }
+
+    // Lifting one finger of a pinch leaves the other resting on the plan. Ending
+    // the gesture rather than falling back to a pan stops the plan lurching
+    // under a finger the user thought they had finished with.
+    if (gesture.kind === 'pinch') {
+      gesture = { kind: 'none' };
+      return;
+    }
+
+    if (gesture.kind === 'none') return;
     endGesture();
   }
 
@@ -489,6 +560,7 @@
   aria-describedby="plan-summary"
   data-testid="canvas-host"
   data-gesture={gesture.kind}
+  data-scale={editor.viewport.scale}
   data-rect={gesture.kind === 'marquee' ? `${gesture.rect.width}x${gesture.rect.height}` : '-'}
 >
   <!--
