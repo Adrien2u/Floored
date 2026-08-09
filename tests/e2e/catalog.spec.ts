@@ -7,6 +7,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { startPlan } from './start';
 
 async function seats(page: Page): Promise<number> {
   return Number.parseInt((await page.getByTestId('seat-count').textContent()) ?? '0', 10);
@@ -17,8 +18,7 @@ async function elements(page: Page): Promise<number> {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByTestId('canvas-host')).toBeVisible();
+  await startPlan(page);
 });
 
 test('placing a 60-inch round adds eight seats', async ({ page }) => {

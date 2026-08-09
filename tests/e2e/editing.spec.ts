@@ -12,6 +12,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { startPlan } from './start';
 
 /** Centre of the canvas, in viewport coordinates. */
 async function canvasCentre(page: Page) {
@@ -61,8 +62,7 @@ async function selectATable(page: Page): Promise<{ x: number; y: number }> {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByTestId('canvas-host')).toBeVisible();
+  await startPlan(page);
 });
 
 test('renders the sample plan with its seats counted', async ({ page }) => {

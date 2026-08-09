@@ -9,6 +9,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { startPlan } from './start';
 import { fileURLToPath } from 'node:url';
 
 const GUESTS_CSV = fileURLToPath(new URL('../fixtures/guests.csv', import.meta.url));
@@ -26,8 +27,7 @@ function seatedCount(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByTestId('canvas-host')).toBeVisible();
+  await startPlan(page);
 });
 
 test('importing a CSV previews before it changes anything', async ({ page }) => {
@@ -121,11 +121,12 @@ test('the guest list survives a save and reopen', async ({ page }) => {
   await page.getByTestId('save').click();
   const path = await (await downloadPromise).path();
 
-  // Reload, so the reopened plan lands in a genuinely empty editor.
+  // Reload, so the reopened plan lands in a genuinely empty editor — which
+  // also proves a returning user can open their work without starting a
+  // throwaway plan first.
   await page.reload();
-  await expect(seatedCount(page)).toContainText('0/0');
+  await expect(page.getByTestId('start-screen')).toBeVisible();
 
-  await page.getByTestId('open').click();
   await page.locator('input[type="file"][accept*=".floored"]').setInputFiles(path);
 
   await expect(seatedCount(page)).toContainText('4/4');

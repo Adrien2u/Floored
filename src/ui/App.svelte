@@ -6,10 +6,24 @@
   import CapacityPanel from './CapacityPanel.svelte';
   import GuestPanel from './GuestPanel.svelte';
   import NumberingControl from './NumberingControl.svelte';
+  import StartScreen from './StartScreen.svelte';
   import { Editor } from './editor.svelte';
-  import { sampleBallroom } from './sample-plan';
 
-  const editor = new Editor(sampleBallroom());
+  const editor = new Editor();
+
+  /**
+   * Whether the user has a plan yet.
+   *
+   * The app opens on the template picker rather than on a demo document: a
+   * sample plan someone has to clear before starting is the "overkill for small
+   * events" complaint in miniature, and a plan the user did not make is a plan
+   * they cannot trust the dimensions of.
+   */
+  let started = $state(false);
+
+  function startOver() {
+    started = false;
+  }
 </script>
 
 <main>
@@ -18,24 +32,36 @@
     <p>Event floor planning that stays free, works offline, and prints to scale.</p>
   </header>
 
-  <FileMenu {editor} />
-  <Toolbar {editor} />
-  <NumberingControl {editor} />
+  {#if !started}
+    <StartScreen
+      {editor}
+      onstart={() => {
+        started = true;
+      }}
+    />
+  {:else}
+    <FileMenu {editor} onopen={() => (started = true)} />
+    <Toolbar {editor} />
+    <NumberingControl {editor} />
 
-  <div class="workspace">
-    <CatalogRail {editor} />
-    <PlanCanvas {editor} />
-    <div class="right">
-      <GuestPanel {editor} />
-      <CapacityPanel {editor} />
+    <div class="workspace">
+      <CatalogRail {editor} />
+      <PlanCanvas {editor} />
+      <div class="right">
+        <GuestPanel {editor} />
+        <CapacityPanel {editor} />
+      </div>
     </div>
-  </div>
 
-  <p class="hint">
-    Click a catalog item to place it. Click to select, drag to move, drag empty space to
-    marquee-select. Shift-drag pans, scroll zooms. Ctrl-click adds to the selection. Arrow keys
-    nudge, shift-arrow nudges ten. Alt suspends snapping. Ctrl+Z undoes.
-  </p>
+    <p class="hint">
+      Click a catalog item to place it. Click to select, drag to move, drag empty space to
+      marquee-select. Shift-drag pans, scroll zooms. Ctrl-click adds to the selection. Arrow keys
+      nudge, shift-arrow nudges ten. Alt suspends snapping. Ctrl+Z undoes.
+      <button class="restart" onclick={startOver} data-testid="start-over">
+        Start a different plan
+      </button>
+    </p>
+  {/if}
 </main>
 
 <style>
@@ -79,6 +105,17 @@
     .workspace {
       grid-template-columns: 1fr;
     }
+  }
+
+  .restart {
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-accent);
+    text-decoration: underline;
+    cursor: pointer;
   }
 
   .hint {

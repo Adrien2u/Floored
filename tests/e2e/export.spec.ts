@@ -7,11 +7,11 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { startPlan } from './start';
 import { readFileSync } from 'node:fs';
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByTestId('canvas-host')).toBeVisible();
+  await startPlan(page);
 });
 
 test('shows what the export will produce before you click', async ({ page }) => {

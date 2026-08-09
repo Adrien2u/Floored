@@ -14,9 +14,11 @@
 
   interface Props {
     editor: Editor;
+    /** Called after a file is opened, so the shell can leave the start screen. */
+    onopen?: () => void;
   }
 
-  const { editor }: Props = $props();
+  const { editor, onopen }: Props = $props();
 
   /**
    * The plan's static canvas layer.
@@ -79,6 +81,7 @@
     }
 
     editor.load(result.document, result.seating);
+    onopen?.();
     say(
       result.migratedFrom === undefined
         ? `Opened ${result.document.meta.name}.`
