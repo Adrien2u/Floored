@@ -1,9 +1,16 @@
 :root {
   --color-surface: #ffffff;
+  --color-panel: #eef1f5;
+  --color-grid: #e8edf3;
   --color-text: #16181d;
   --color-muted: #5c6270;
   --color-line: #d8dce3;
-  --color-accent: #2f6df6;
+  --color-accent: #2e5aac;
+  /* Amber is only ever "something is wrong"; the accent is only ever
+     "this is selected". Sharing one hue for both makes a plan harder to
+     read at exactly the moment it matters most. */
+  --color-warn: #b45309;
+  --color-warn-soft: #fdf0dc;
 
   color-scheme: light dark;
   font-family:
@@ -18,9 +25,15 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --color-surface: #14161a;
+    --color-panel: #101317;
+    --color-grid: #1c222a;
     --color-text: #e8eaee;
     --color-muted: #9aa1af;
     --color-line: #2b2f37;
+    --color-accent: #7ba1ee;
+    /* Amber lifted for legibility on a dark ground, not naively inverted. */
+    --color-warn: #e0a458;
+    --color-warn-soft: #33260f;
   }
 }
 

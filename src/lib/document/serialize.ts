@@ -94,6 +94,15 @@ function canonicalElement(element: FloorElement): unknown {
         widthMm: element.widthMm,
         depthMm: element.depthMm,
       };
+    case 'seatingBlock':
+      return {
+        ...base,
+        origin: { x: element.origin.x, y: element.origin.y },
+        rows: element.rows,
+        columns: element.columns,
+        seatPitchMm: element.seatPitchMm,
+        rowPitchMm: element.rowPitchMm,
+      };
     case 'note':
       return { ...base, origin: { x: element.origin.x, y: element.origin.y }, text: element.text };
   }
@@ -147,15 +156,25 @@ export function parse(text: string): ParseResult {
 /**
  * Migration chain.
  *
- * One step per version bump, applied in order, each taking the shape produced
- * by the previous one. Steps are never edited once released — a released
- * migration is the only record of what old files actually looked like.
+ * One step per version bump, keyed by the version it upgrades **from**, applied
+ * in order, each taking the shape produced by the previous one.
  *
- * There is nothing here yet because version 1 is the first release. The chain
- * exists now, tested, so that the first real migration is a data change rather
- * than an architecture change made under time pressure.
+ * **Steps are never edited once released.** A released migration is the only
+ * record of what old files actually looked like, and rewriting it silently
+ * changes the meaning of every file already in the wild.
  */
-const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string, unknown>> = {};
+const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string, unknown>> = {
+  /**
+   * 1 → 2: adds the `seatingBlock` element type.
+   *
+   * Purely additive, so nothing in an existing file needs changing — a v1 plan
+   * simply has no seating blocks in it. The step exists anyway rather than
+   * being skipped, because an explicit no-op is the honest record that this
+   * version transition was considered, and because the chain has to be walked
+   * to get from 1 to any later version.
+   */
+  1: (doc) => doc,
+};
 
 function migrate(raw: Record<string, unknown>, fromVersion: number): Record<string, unknown> {
   let doc = raw;
@@ -282,6 +301,21 @@ function readElement(value: unknown): FloorElement | undefined {
         widthMm,
         depthMm,
       };
+    }
+
+    case 'seatingBlock': {
+      const origin = readPoint(value['origin']);
+      const rows = int(value['rows']);
+      const columns = int(value['columns']);
+      if (!origin || rows <= 0 || columns <= 0) return undefined;
+
+      const seatPitchMm = int(value['seatPitchMm']);
+      const rowPitchMm = int(value['rowPitchMm']);
+      // A block with zero pitch would stack every chair on one spot and report
+      // a seat count the plan cannot physically hold.
+      if (seatPitchMm <= 0 || rowPitchMm <= 0) return undefined;
+
+      return { ...base, type: 'seatingBlock', origin, rows, columns, seatPitchMm, rowPitchMm };
     }
 
     case 'note': {

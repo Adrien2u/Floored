@@ -21,8 +21,9 @@ import { elementBounds } from '$lib/document/element';
 import type { Viewport } from './viewport';
 import { visibleBounds, mmToScreen, lengthToScreen } from './viewport';
 import { elementsInBounds, padRect } from './scene';
-import { drawElement, drawGrid, type Palette } from './draw';
+import { drawElement, drawGrid, drawClearanceWarning, type Palette } from './draw';
 import type { Rect } from '$lib/geometry/transform';
+import type { Point } from '$lib/geometry/vec';
 
 /** Extra margin around the viewport, so elements crossing the edge still draw. */
 const CULL_PADDING_MM = 500;
@@ -39,6 +40,18 @@ export interface RenderState {
   readonly gridSpacingMm: number;
   /** In-progress marquee, in document coordinates. */
   readonly marquee?: Rect;
+  /**
+   * Clearance problems to mark on the plan.
+   *
+   * Drawn on the interaction canvas rather than the static one: they are
+   * derived from the document rather than part of it, and they change on every
+   * edit, so keeping them off the static layer avoids a full repaint each time
+   * a table moves a millimetre.
+   */
+  readonly warnings?: readonly {
+    readonly atMm: Point;
+    readonly severity: 'tight' | 'violation';
+  }[];
 }
 
 /** Result of a static repaint, for the benchmark and for diagnostics. */
@@ -158,6 +171,10 @@ export class Renderer {
     }
 
     if (state.marquee) this.drawMarquee(state.marquee, viewport, palette);
+
+    for (const warning of state.warnings ?? []) {
+      drawClearanceWarning(this.interactionCtx, warning.atMm, warning.severity, viewport, palette);
+    }
   }
 
   private drawHandles(_id: ElementId, bounds: Rect, state: RenderState): void {

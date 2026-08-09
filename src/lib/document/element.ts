@@ -63,6 +63,25 @@ export interface FixtureElement extends ElementBase {
   readonly depthMm: number;
 }
 
+/**
+ * A grid of chairs — ceremony, theatre, or classroom seating.
+ *
+ * Generates its chairs rather than storing them (ADR-0012). A 3,500-seat
+ * theatre layout is a handful of these, not 3,500 elements: the file stays
+ * small, the undo stack stays meaningful, and the spatial scan stays fast.
+ */
+export interface SeatingBlockElement extends ElementBase {
+  readonly type: 'seatingBlock';
+  /** Top-left corner of the block, before rotation. */
+  readonly origin: Point;
+  readonly rows: number;
+  readonly columns: number;
+  /** Seat-to-seat spacing within a row. */
+  readonly seatPitchMm: number;
+  /** Row-to-row spacing. */
+  readonly rowPitchMm: number;
+}
+
 /** A free-standing text note on the plan. */
 export interface NoteElement extends ElementBase {
   readonly type: 'note';
@@ -71,7 +90,12 @@ export interface NoteElement extends ElementBase {
 }
 
 export type FloorElement =
-  RoomElement | RoundTableElement | RectTableElement | FixtureElement | NoteElement;
+  | RoomElement
+  | RoundTableElement
+  | RectTableElement
+  | FixtureElement
+  | SeatingBlockElement
+  | NoteElement;
 
 export type ElementType = FloorElement['type'];
 
@@ -81,10 +105,30 @@ export function seatCount(element: FloorElement): number {
     case 'roundTable':
     case 'rectTable':
       return element.seats;
+    case 'seatingBlock':
+      return Math.max(0, element.rows) * Math.max(0, element.columns);
     default:
       return 0;
   }
 }
+
+/** Overall size of a seating block, measured seat centre to seat centre plus a seat. */
+export function seatingBlockSize(element: SeatingBlockElement): {
+  widthMm: number;
+  depthMm: number;
+} {
+  const columns = Math.max(0, element.columns);
+  const rows = Math.max(0, element.rows);
+  if (columns === 0 || rows === 0) return { widthMm: 0, depthMm: 0 };
+
+  return {
+    widthMm: (columns - 1) * element.seatPitchMm + SEAT_SIZE_MM,
+    depthMm: (rows - 1) * element.rowPitchMm + SEAT_SIZE_MM,
+  };
+}
+
+/** Footprint of a single chair. A banquet chair is about 18 inches square. */
+export const SEAT_SIZE_MM = 457;
 
 /**
  * Axis-aligned bounds of an element, accounting for rotation.
@@ -130,6 +174,19 @@ export function elementBounds(element: FloorElement): Rect {
         element.rotationDeg
       );
 
+    case 'seatingBlock': {
+      const size = seatingBlockSize(element);
+      return boundsOfRotatedRect(
+        {
+          x: element.origin.x,
+          y: element.origin.y,
+          width: size.widthMm,
+          height: size.depthMm,
+        },
+        element.rotationDeg
+      );
+    }
+
     case 'note':
       // A note has no intrinsic size until it is laid out with a font. Zero
       // width is honest here; the renderer supplies a hit area of its own.
@@ -144,6 +201,7 @@ export function elementPosition(element: FloorElement): Point {
       return element.center;
     case 'rectTable':
     case 'fixture':
+    case 'seatingBlock':
     case 'note':
       return element.origin;
     case 'room': {
@@ -174,6 +232,7 @@ export function moveElement(element: FloorElement, dx: number, dy: number): Floo
       return { ...element, center: { x: element.center.x + dx, y: element.center.y + dy } };
     case 'rectTable':
     case 'fixture':
+    case 'seatingBlock':
     case 'note':
       return { ...element, origin: { x: element.origin.x + dx, y: element.origin.y + dy } };
   }

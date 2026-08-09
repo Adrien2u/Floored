@@ -20,8 +20,12 @@ import { area } from '$lib/geometry/polygon';
  * A single incrementing integer, not semver. ADR-0004 promises one migration
  * function per bump, and semver invites arguing about whether a change is minor
  * — an integer has no such ambiguity.
+ *
+ * History:
+ *   1 — first release: room, roundTable, rectTable, fixture, note
+ *   2 — adds seatingBlock (Phase 5)
  */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export interface DocumentMeta {
   /** Event name, shown in the PDF title block. */

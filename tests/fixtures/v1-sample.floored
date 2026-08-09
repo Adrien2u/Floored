@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Autumn Fundraiser",
+    "eventDate": "2025-10-04",
+    "notes": "Written by format version 1, before seating blocks existed.",
+    "unitSystem": "imperial"
+  },
+  "layers": ["room", "furniture", "annotations"],
+  "elements": [
+    {
+      "id": "room",
+      "type": "room",
+      "layer": "room",
+      "label": "Ballroom",
+      "locked": true,
+      "rotationDeg": 0,
+      "points": [
+        { "x": 0, "y": 0 },
+        { "x": 18288, "y": 0 },
+        { "x": 18288, "y": 12192 },
+        { "x": 0, "y": 12192 }
+      ]
+    },
+    {
+      "id": "t1",
+      "type": "roundTable",
+      "layer": "furniture",
+      "label": "T1",
+      "locked": false,
+      "rotationDeg": 0,
+      "center": { "x": 3000, "y": 3000 },
+      "diameterMm": 1524,
+      "seats": 8
+    },
+    {
+      "id": "t2",
+      "type": "roundTable",
+      "layer": "furniture",
+      "label": "T2",
+      "locked": false,
+      "rotationDeg": 0,
+      "center": { "x": 7000, "y": 3000 },
+      "diameterMm": 1524,
+      "seats": 8
+    },
+    {
+      "id": "stage",
+      "type": "fixture",
+      "layer": "furniture",
+      "label": "Stage",
+      "locked": false,
+      "rotationDeg": 0,
+      "kind": "stage",
+      "origin": { "x": 6096, "y": 300 },
+      "widthMm": 6096,
+      "depthMm": 1524
+    },
+    {
+      "id": "n1",
+      "type": "note",
+      "layer": "annotations",
+      "label": "",
+      "locked": false,
+      "rotationDeg": 0,
+      "origin": { "x": 500, "y": 11000 },
+      "text": "Load-in via north door"
+    }
+  ]
+}

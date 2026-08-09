@@ -14,7 +14,7 @@
  */
 
 import type { FloorElement, ElementId } from '$lib/document/element';
-import { elementBounds } from '$lib/document/element';
+import { elementBounds, seatingBlockSize } from '$lib/document/element';
 import type { FlooredDocument } from '$lib/document/document';
 import type { Rect } from '$lib/geometry/transform';
 import { rectsOverlap, rotatePoint, rectCenter } from '$lib/geometry/transform';
@@ -69,13 +69,19 @@ export function hitsElement(element: FloorElement, point: Point): boolean {
     case 'room':
       return pointInPolygon(point, element.points);
 
+    case 'seatingBlock':
     case 'rectTable':
     case 'fixture': {
+      const size =
+        element.type === 'seatingBlock'
+          ? seatingBlockSize(element)
+          : { widthMm: element.widthMm, depthMm: element.depthMm };
+
       const rect = {
         x: element.origin.x,
         y: element.origin.y,
-        width: element.widthMm,
-        height: element.depthMm,
+        width: size.widthMm,
+        height: size.depthMm,
       };
       if (element.rotationDeg === 0) return containsPoint(rect, point);
       // Rotate the query point backwards instead of the rectangle forwards:

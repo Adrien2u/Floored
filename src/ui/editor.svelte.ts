@@ -10,7 +10,8 @@
  */
 
 import { createDocument, documentBounds, type FlooredDocument } from '$lib/document/document';
-import { batch, type Command } from '$lib/document/commands';
+import { addCommand, batch, type Command } from '$lib/document/commands';
+import type { CatalogItem } from '$lib/catalog/catalog';
 import {
   createHistory,
   push,
@@ -34,7 +35,7 @@ import {
 } from '$lib/tools/arrange';
 import { nudgeCommand } from '$lib/tools/drag';
 import { rotateByCommands } from '$lib/tools/rotate';
-import { createViewport, fitToBounds, type Viewport } from '$lib/render/viewport';
+import { createViewport, fitToBounds, screenToMm, type Viewport } from '$lib/render/viewport';
 import { DEFAULT_GRID_MM } from '$lib/geometry/snap';
 import { inches } from '$lib/geometry/units';
 
@@ -188,6 +189,21 @@ export class Editor {
 
   nudge(direction: { x: number; y: number }, large = false): void {
     this.push(nudgeCommand(this.document, this.selection, direction, this.gridMm, large));
+  }
+
+  /**
+   * Place a catalog item at the centre of the current view, and select it.
+   *
+   * Selecting the new element matters: the user's next action is almost always
+   * to move it somewhere, and making them click what they just created is a
+   * step the app can take for them.
+   */
+  placeCatalogItem(item: CatalogItem): void {
+    const centre = screenToMm(this.viewport.widthPx / 2, this.viewport.heightPx / 2, this.viewport);
+
+    const element = item.create(crypto.randomUUID(), centre);
+    this.push(addCommand(this.document, element));
+    this.select(element.id);
   }
 
   fit(): void {

@@ -10,6 +10,7 @@
  */
 
 import type { FloorElement } from '$lib/document/element';
+import { seatingBlockSize, SEAT_SIZE_MM } from '$lib/document/element';
 import type { Viewport } from './viewport';
 import { mmToScreen, lengthToScreen } from './viewport';
 import { seatPositions } from './scene';
@@ -87,10 +88,95 @@ export function drawElement(
         palette.panel
       );
       break;
+    case 'seatingBlock':
+      drawSeatingBlock(ctx, element, viewport, palette, selected);
+      break;
     case 'note':
       drawNote(ctx, element, viewport, palette);
       break;
   }
+}
+
+function drawSeatingBlock(
+  ctx: CanvasRenderingContext2D,
+  element: Extract<FloorElement, { type: 'seatingBlock' }>,
+  viewport: Viewport,
+  palette: Palette,
+  selected: boolean
+): void {
+  const size = seatingBlockSize(element);
+  const chairPx = lengthToScreen(SEAT_SIZE_MM / 2, viewport);
+
+  // Zoomed out, a block of 120 chairs is a grey smudge that costs 120 arcs to
+  // draw. Below the threshold it becomes one outlined rectangle, which is both
+  // faster and more legible.
+  if (chairPx < MIN_CHAIR_PX) {
+    ctx.save();
+    ctx.translate(mmToScreen(element.origin, viewport).x, mmToScreen(element.origin, viewport).y);
+    if (element.rotationDeg !== 0) ctx.rotate((element.rotationDeg * Math.PI) / 180);
+    ctx.beginPath();
+    ctx.rect(0, 0, lengthToScreen(size.widthMm, viewport), lengthToScreen(size.depthMm, viewport));
+    ctx.fillStyle = palette.panel;
+    ctx.fill();
+    ctx.strokeStyle = selected ? palette.accent : palette.muted;
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  ctx.save();
+  const origin = mmToScreen(element.origin, viewport);
+  ctx.translate(origin.x, origin.y);
+  if (element.rotationDeg !== 0) ctx.rotate((element.rotationDeg * Math.PI) / 180);
+
+  ctx.fillStyle = palette.surface;
+  ctx.strokeStyle = selected ? palette.accent : palette.muted;
+  ctx.lineWidth = 1;
+
+  const seatHalf = SEAT_SIZE_MM / 2;
+  for (let row = 0; row < element.rows; row++) {
+    for (let col = 0; col < element.columns; col++) {
+      const x = lengthToScreen(col * element.seatPitchMm + seatHalf, viewport);
+      const y = lengthToScreen(row * element.rowPitchMm + seatHalf, viewport);
+      ctx.beginPath();
+      ctx.arc(x, y, chairPx * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * Draw a clearance warning between two elements.
+ *
+ * Amber, never the accent colour: blue only ever means "this is selected", and
+ * amber only ever means "something is wrong here". Reusing one hue for both
+ * would make the plan harder to read exactly when it matters most.
+ */
+export function drawClearanceWarning(
+  ctx: CanvasRenderingContext2D,
+  atMm: { x: number; y: number },
+  severity: 'tight' | 'violation',
+  viewport: Viewport,
+  palette: Palette
+): void {
+  const at = mmToScreen(atMm, viewport);
+  const radius = 7;
+
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = severity === 'violation' ? palette.warn : palette.surface;
+  ctx.fill();
+  ctx.strokeStyle = palette.warn;
+  ctx.lineWidth = severity === 'violation' ? 2 : 1;
+  ctx.stroke();
+
+  ctx.fillStyle = severity === 'violation' ? palette.surface : palette.warn;
+  ctx.font = '600 10px ui-monospace, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('!', at.x, at.y);
 }
 
 function drawRoom(
@@ -265,7 +351,18 @@ export function drawGrid(
  * and by nothing else — it is a measurement, not a rendering decision.
  */
 export function primitiveCount(element: FloorElement, viewport: Viewport): number {
-  if (element.type !== 'roundTable') return 1;
   const chairsVisible = lengthToScreen(CHAIR_RADIUS_MM, viewport) >= MIN_CHAIR_PX;
-  return 1 + (chairsVisible ? element.seats : 0);
+
+  if (element.type === 'roundTable') {
+    return 1 + (chairsVisible ? element.seats : 0);
+  }
+
+  if (element.type === 'seatingBlock') {
+    // Below the threshold the whole block collapses to one rectangle, which is
+    // what keeps a 3,500-seat theatre plan inside the frame budget.
+    const blockChairsVisible = lengthToScreen(SEAT_SIZE_MM / 2, viewport) >= MIN_CHAIR_PX;
+    return blockChairsVisible ? element.rows * element.columns : 1;
+  }
+
+  return 1;
 }

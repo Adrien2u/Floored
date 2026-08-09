@@ -13,6 +13,7 @@
   import { documentBounds } from '$lib/document/document';
   import { DEFAULT_GRID_MM } from '$lib/geometry/snap';
   import { beginDrag, updateDrag, commitDrag, type DragState } from '$lib/tools/drag';
+  import { clearanceIssues } from '$lib/catalog/capacity';
   import type { Rect } from '$lib/geometry/transform';
   import type { Editor } from './editor.svelte';
 
@@ -60,6 +61,14 @@
 
   function currentState(): RenderState {
     const marquee = gesture.kind === 'marquee' ? gesture.rect : undefined;
+    // Recomputed per repaint rather than cached: at realistic plan sizes the
+    // pairwise scan is well under a millisecond, and a cache that can go stale
+    // would show a warning for a table the user already moved.
+    const warnings = clearanceIssues(editor.document).map((issue) => ({
+      atMm: issue.atMm,
+      severity: issue.severity,
+    }));
+
     return {
       document: editor.document,
       viewport: editor.viewport,
@@ -67,6 +76,7 @@
       hiddenLayers: editor.hiddenLayers,
       palette: readPalette(),
       gridSpacingMm: editor.gridMm || DEFAULT_GRID_MM,
+      warnings,
       ...(marquee ? { marquee } : {}),
     };
   }
