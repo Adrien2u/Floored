@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { saveDocument, savePdf, saveSvg, savePng, readFile } from '$lib/export/download';
+  import {
+    saveDocument,
+    savePdf,
+    saveSvg,
+    savePng,
+    saveDayOfPack,
+    readFile,
+  } from '$lib/export/download';
   import { parse } from '$lib/document/serialize';
   import { SCALE, type DrawingScale } from '$lib/export/projection';
   import { exportPlanPdf } from '$lib/export/plan-pdf';
@@ -135,6 +142,18 @@
       data-testid="export-svg">SVG</button
     >
     <button onclick={exportPng} data-testid="export-png">PNG</button>
+  </div>
+
+  <div class="group">
+    <button
+      onclick={() => {
+        saveDayOfPack(editor.document, editor.seating);
+        say('Saved four sheets in one PDF: find-my-seat, table sheets, place cards, check-in.');
+      }}
+      disabled={editor.seating.guests.length === 0}
+      title="Find-my-seat list, per-table sheets, place cards, and a check-in sheet"
+      data-testid="export-day-of">Day-of sheets</button
+    >
   </div>
 
   <span class="preview" data-testid="export-preview">

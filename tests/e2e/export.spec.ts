@@ -96,7 +96,7 @@ test('saves and reopens a plan unchanged', async ({ page }) => {
   expect(await page.getByTestId('element-count').textContent()).not.toBe(beforeElements);
 
   await page.getByTestId('open').click();
-  await page.locator('input[type="file"]').setInputFiles(path);
+  await page.locator('input[type="file"][accept*=".floored"]').setInputFiles(path);
 
   await expect(page.getByTestId('element-count')).toHaveText(beforeElements ?? '');
   await expect(page.getByTestId('seat-count')).toHaveText(beforeSeats ?? '');
@@ -111,7 +111,7 @@ test('opening clears the undo history, which belonged to the old plan', async ({
   const path = await (await downloadPromise).path();
 
   await page.getByTestId('open').click();
-  await page.locator('input[type="file"]').setInputFiles(path);
+  await page.locator('input[type="file"][accept*=".floored"]').setInputFiles(path);
 
   // Ctrl+Z reaching back into a different document would be alarming.
   await expect(page.getByTestId('undo')).toBeDisabled();
@@ -123,7 +123,7 @@ test('refuses a malformed file with a readable message', async ({ page }, testIn
   await fs.writeFile(bad, 'this is not a floor plan');
 
   await page.getByTestId('open').click();
-  await page.locator('input[type="file"]').setInputFiles(bad);
+  await page.locator('input[type="file"][accept*=".floored"]').setInputFiles(bad);
 
   const message = page.getByTestId('file-message');
   await expect(message).toBeVisible();
@@ -134,7 +134,9 @@ test('refuses a malformed file with a readable message', async ({ page }, testIn
 
 test('opening a version 1 file upgrades it and says so', async ({ page }) => {
   await page.getByTestId('open').click();
-  await page.locator('input[type="file"]').setInputFiles('tests/fixtures/v1-sample.floored');
+  await page
+    .locator('input[type="file"][accept*=".floored"]')
+    .setInputFiles('tests/fixtures/v1-sample.floored');
 
   await expect(page.getByTestId('file-message')).toContainText('upgraded from format 1');
   await expect(page.getByTestId('seat-count')).toHaveText('16');

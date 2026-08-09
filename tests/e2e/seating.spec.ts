@@ -110,3 +110,45 @@ async function centre(locator: ReturnType<Page['getByTestId']>) {
   if (!box) throw new Error('element has no box');
   return { x: box.width / 2, y: box.height / 2 };
 }
+
+test('the guest list survives a save and reopen', async ({ page }) => {
+  await page.getByTestId('catalog-round-60').click();
+  await importGuests(page);
+  await page.getByTestId('auto-assign').click();
+  await expect(seatedCount(page)).toContainText('4/4');
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByTestId('save').click();
+  const path = await (await downloadPromise).path();
+
+  // Reload, so the reopened plan lands in a genuinely empty editor.
+  await page.reload();
+  await expect(seatedCount(page)).toContainText('0/0');
+
+  await page.getByTestId('open').click();
+  await page.locator('input[type="file"][accept*=".floored"]').setInputFiles(path);
+
+  await expect(seatedCount(page)).toContainText('4/4');
+
+  // The default list shows who still needs a seat, so a fully seated plan has
+  // an empty one — search to prove the names really came back.
+  await page.getByTestId('guest-search').fill('lovelace');
+  await expect(page.getByTestId('guest-list')).toContainText('Ada Lovelace');
+});
+
+test('the day-of pack downloads, and is offered only with guests', async ({ page }) => {
+  await expect(page.getByTestId('export-day-of')).toBeDisabled();
+
+  await page.getByTestId('catalog-round-60').click();
+  await importGuests(page);
+  await page.getByTestId('auto-assign').click();
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByTestId('export-day-of').click();
+  const download = await downloadPromise;
+
+  // One file, not four: a browser honours a single download per gesture.
+  expect(download.suggestedFilename()).toContain('day-of');
+  expect(download.suggestedFilename().endsWith('.pdf')).toBe(true);
+  await expect(page.getByTestId('file-message')).toContainText('four sheets');
+});

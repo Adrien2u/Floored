@@ -8,6 +8,7 @@
 
 import type { FlooredDocument } from '$lib/document/document';
 import type { SeatingPlan } from '$lib/seating/guest';
+import { dayOfPackPdf } from './day-of';
 import { serialize } from '$lib/document/serialize';
 import { exportPlanPdf, type ExportOptions } from './plan-pdf';
 import { exportPlanSvg, type SvgOptions } from './plan-svg';
@@ -68,6 +69,18 @@ export function safeFilename(name: string, extension: string): string {
  */
 export function saveDocument(doc: FlooredDocument, seating?: SeatingPlan): void {
   downloadText(safeFilename(doc.meta.name, 'floored'), serialize(doc, seating), 'application/json');
+}
+
+/**
+ * The four sheets the event runs on, as one printable document.
+ *
+ * A planner assembling their day-of folder wants all four, and one file prints
+ * in a single job. Separate downloads were tried and are not an option: a
+ * browser honours only one per user gesture.
+ */
+export function saveDayOfPack(doc: FlooredDocument, seating: SeatingPlan): void {
+  const pdf = dayOfPackPdf(doc, seating, { eventName: doc.meta.name });
+  downloadText(safeFilename(`${doc.meta.name} day-of`, 'pdf'), pdf, 'application/pdf');
 }
 
 export function savePdf(doc: FlooredDocument, options?: ExportOptions): void {
