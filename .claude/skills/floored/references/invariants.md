@@ -1,8 +1,14 @@
 # Invariants
 
-Read this before changing library code rather than authoring a plan. Each item
-here is actively enforced by a test — breaking one turns CI red, which is the
-point.
+Read this before changing library code rather than authoring a plan.
+
+**If you are only authoring a `.floored` file, most of this does not apply to
+you.** Rules 1 (integer millimetres) and the purity note are the two that bind
+an author; the rest govern contributions to the library itself. They are here
+so you can tell the difference, not as a checklist for every plan.
+
+Each item here is actively enforced by a test — breaking one turns CI red, which
+is the point.
 
 ## 1. Integer millimetres, always
 

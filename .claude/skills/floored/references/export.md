@@ -69,6 +69,12 @@ a single sheet matters to you.
 
 `scaleLabel` is what a title block would print: `1/8" = 1'-0"`, `1:100`.
 
+**A big room tiles even at the default.** `gala` at its default 80×60 ft does not
+fit one Letter-landscape sheet at any standard scale — it comes out as **4 tiled
+pages**. That is not a failure, but "export a to-scale PDF" quietly becoming a
+four-sheet match-line set is worth reporting rather than discovering at the
+printer. Check `result.pages` and `result.tiled` and say which you got.
+
 ## SVG
 
 ```ts

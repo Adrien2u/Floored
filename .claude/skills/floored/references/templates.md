@@ -47,21 +47,32 @@ add or remove tables.
 
 ### Trimming down
 
+Filter on **`seatCount(e) > 0`**, never on an id prefix. Ids are semantic, not a
+namespace: `startsWith('b')` matches `b1`–`b5` in `wedding` **and the `bar`
+fixture**, and in `gala` it matches only `bar-left` and `bar-right`. A prefix
+filter will happily delete the bar and leave the tables.
+
 ```ts
 let doc = findTemplate('wedding').create({ roomWidthMm: feet(70), roomDepthMm: feet(45) });
 // 168 seats
 
 const target = 120;
-const backRow = doc.elements.filter((e) => e.id.startsWith('b')).map((e) => e.id);
-for (const id of [...backRow].reverse()) {
+const droppable = doc.elements
+  .filter((e) => seatCount(e) > 0 && !RESERVED.has(e.id))
+  .map((e) => e.id)
+  .reverse(); // last in draw order = furthest from the focal point
+
+for (const id of droppable) {
   if (totalSeats(doc) <= target) break;
   doc = removeElement(doc, id);
 }
-// 120 seats, 15 tables
+// 120 seats, bar intact
 ```
 
-Trim from the back row inward: the furthest tables from the head table are the
-ones a planner drops first.
+Templates lay tables out from the focal point (head table, stage, screen)
+outward, so reversing draw order drops the furthest tables first — which is the
+order a planner drops them in. That rule holds for every template; row-prefix
+ids are a `wedding` detail and nothing else.
 
 ### Topping up
 
@@ -155,20 +166,45 @@ const result = autoAssign(plan, tables);
 // l1 holds Ada Lovelace | Grace Hopper | Van Rijn, Rembrandt | Katsushika Hokusai
 ```
 
-Apply the same exclusion when numbering, or the head table gets relabelled `T1`
-and loses the name the template gave it:
+### Numbering around a reserved table
+
+Do **not** reach for `numberingLabels` plus `startAt`. It assigns a number to
+every seating element including the reserved one, so skipping that element
+leaves a hole: on `gala` with `t1` reserved and `startAt: 2`, `t1` consumes the
+number 2 and the surviving tables come out `T3`–`T12` — a plan whose lowest
+table number is 3.
+
+Filter the **order** instead, then index it yourself. `numberingOrder` returns
+the ids in numbering sequence:
 
 ```ts
-for (const [id, label] of numberingLabels(doc, { ...DEFAULT_NUMBERING, startAt: 2 })) {
-  if (RESERVED.has(id)) continue;
+const order = numberingOrder(doc, DEFAULT_NUMBERING).filter((id) => !RESERVED.has(id));
+
+order.forEach((id, i) => {
   const el = doc.elements.find((e) => e.id === id);
-  if (el) doc = replaceElement(doc, updateElement(el, { label }));
-}
-// head keeps "Head table"; l1=T2 l2=T3 r1=T4 r2=T5 b1=T6 … b5=T10
+  if (el) doc = replaceElement(doc, updateElement(el, { label: 'T' + String(i + 1) }));
+});
+// gala: t1 keeps its own label; t2=T1 t3=T2 … t21=T20
 ```
 
-`startAt: 2` reserves the number 1 conceptually. Skipping the element is what
-actually protects its label — the two are separate steps and you need both.
+This is template-agnostic and stays contiguous from 1 wherever the reserved
+table falls in the order. Give the reserved table a real label of its own —
+`updateElement(el, { label: 'Host table' })` — rather than leaving it blank.
 
 The same applies to any sweetheart table, vendor table or reserved round: put
 its id in `RESERVED`.
+
+`gala`'s 21 tables are an undifferentiated grid — there is no `head`. Pick the
+reserved table by **position**, not by id: `gala`'s stage sits at the top of the
+room, so a host party belongs at a front table, not at whichever round happens
+to be called `t1`. Read `elementPosition` to choose.
+
+## Order of operations
+
+Do it in this order and you never need to repair anything:
+
+**trim → number → import → assign → export**
+
+Removing or shrinking a table after guests are seated orphans their `SeatRef`s,
+and you then owe a `pruneAssignments` pass. Numbering after assignment is
+harmless; numbering after trimming is what keeps the numbers contiguous.
