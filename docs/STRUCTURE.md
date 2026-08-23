@@ -51,6 +51,7 @@ exporter — the property the to-scale print requirement depends on.
 | `tests/fixtures/`       | Sample `.floored` files, one per released schema version                   | 2+      |
 | `docs/`                 | Everything in [README](../README.md#documentation)                         | ongoing |
 | `scripts/`              | Build and CI helpers                                                       | 0       |
+| `.claude/skills/`       | Agent-facing reference for authoring `.floored` plans programmatically     | 10      |
 
 Directories appear when their phase begins. Empty scaffolding is not created in
 advance — a directory that exists implies content that works.

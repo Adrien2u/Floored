@@ -37,8 +37,8 @@ change one arrow on that diagram and nothing else.
   ui/          Svelte. Renders and reads. Computes nothing.
    │
    ├─ tools/       pointer state machines: select, move, rotate, draw
-   ├─ render/      dual canvas, viewport, rbush, culling, hit-testing
-   ├─ export/      pdf-lib vector pipeline, PNG, SVG
+   ├─ render/      dual canvas, viewport, bounds scan, culling, hit-testing
+   ├─ export/      hand-written PDF writer, PNG, SVG
    ├─ seating/     guest model, assignment, constraint solving
    ├─ catalog/     object definitions with verified real dimensions
    │
@@ -61,8 +61,11 @@ Two stacked canvases ([ADR-0001](adr/ADR-0001-rendering.md)):
   measurement overlay. Repaints freely; it is cheap and mostly empty.
 
 Dragging a table repaints the small interaction canvas per frame and the static
-canvas once, at drop. `rbush` answers "what is under the pointer" and "what is in
-view" without scanning every element.
+canvas once, at drop. A linear bounds scan in `render/scene.ts` answers "what is
+under the pointer" and "what is in view". No spatial index was needed at the
+element counts this app reaches — see the amendment on
+[ADR-0001](adr/ADR-0001-rendering.md) — and `scene.bench.test.ts` fails CI on the
+day that stops being true.
 
 ## State
 
@@ -84,7 +87,7 @@ four actions ago.
 2. Tool computes new geometry via `geometry/` — pure functions, no side effects.
 3. Tool emits a **command** with forward and inverse forms.
 4. Document applies it, producing new immutable element objects.
-5. rbush index updates for the changed ids only.
+5. Culling and hit-testing read the changed elements' new bounds.
 6. Renderer repaints the affected region.
 7. Autosave debounces, then writes to OPFS.
 

@@ -34,6 +34,10 @@ If you're changing behaviour rather than fixing a bug, read the relevant
 [ADR](docs/adr/) first. If your change contradicts one, that's fine — but say so
 in the PR, because it means the ADR needs updating or superseding.
 
+Working with an AI agent? [`.claude/skills/floored/`](.claude/skills/floored/SKILL.md)
+documents how to build and edit `.floored` plans by calling the library directly —
+the data model, the catalog, seating, exports, and the invariants not to break.
+
 ## Good first issues
 
 Issues labelled `good first issue` are real work, not busywork. The most valuable

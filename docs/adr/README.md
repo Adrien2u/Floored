@@ -6,7 +6,7 @@ reversal condition is a belief, not a decision.
 
 | #                                         | Decision                                              | Status                     |
 | ----------------------------------------- | ----------------------------------------------------- | -------------------------- |
-| [0001](ADR-0001-rendering.md)             | Hand-rolled Canvas2D + rbush, dual-canvas             | Accepted                   |
+| [0001](ADR-0001-rendering.md)             | Hand-rolled Canvas2D, dual-canvas (amended: no rbush) | Accepted                   |
 | [0002](ADR-0002-framework.md)             | Svelte 5 + Vite + TypeScript strict                   | Accepted                   |
 | [0003](ADR-0003-document-and-undo.md)     | Plain document, immutable updates, command-stack undo | Accepted                   |
 | [0004](ADR-0004-file-format.md)           | `.floored` JSON with permanent backward compatibility | Accepted                   |
