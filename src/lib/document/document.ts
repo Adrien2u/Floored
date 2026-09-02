@@ -25,8 +25,10 @@ import { area } from '$lib/geometry/polygon';
  *   1 — first release: room, roundTable, rectTable, fixture, note
  *   2 — adds seatingBlock (Phase 5)
  *   3 — adds the optional top-level `seating` block (Phase 7)
+ *   4 — adds the `sign` element type, the signage fixture kinds, and the
+ *       `signage` default layer (Phase 11)
  */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 export interface DocumentMeta {
   /** Event name, shown in the PDF title block. */

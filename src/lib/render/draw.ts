@@ -88,6 +88,20 @@ export function drawElement(
         palette.panel
       );
       break;
+    case 'sign':
+      // Filled with the accent rather than the panel grey: signs are small
+      // enough at plan zoom that an outline alone disappears, and they are
+      // exactly the thing someone opens a sign plan to find.
+      drawRotatedBox(
+        ctx,
+        element.origin,
+        element.widthMm,
+        element.depthMm,
+        element.rotationDeg,
+        viewport,
+        palette.accent
+      );
+      break;
     case 'seatingBlock':
       drawSeatingBlock(ctx, element, viewport, palette, selected);
       break;

@@ -120,6 +120,24 @@ export function projectPoint(
 }
 
 /**
+ * The area of a page a plan may actually be drawn in.
+ *
+ * `reservedHeightPt` is whatever the sheet spends on furniture of its own —
+ * in practice the title block strip. It has to be subtracted here rather than
+ * by each caller, because a fit test that ignores it reports a fit the tiler
+ * then splits across two sheets.
+ */
+export function drawableArea(
+  page: PageSpec,
+  reservedHeightPt = 0
+): { widthPt: number; heightPt: number } {
+  return {
+    widthPt: page.widthPt - page.marginPt * 2,
+    heightPt: page.heightPt - page.marginPt * 2 - reservedHeightPt,
+  };
+}
+
+/**
  * Does a plan of this size fit on one page at this scale?
  *
  * Used to decide whether to tile across sheets before committing to a layout.
@@ -128,14 +146,49 @@ export function fitsOnPage(
   widthMm: number,
   heightMm: number,
   scale: DrawingScale,
-  page: PageSpec
+  page: PageSpec,
+  reservedHeightPt = 0
 ): boolean {
-  const drawableWidth = page.widthPt - page.marginPt * 2;
-  const drawableHeight = page.heightPt - page.marginPt * 2;
+  const drawable = drawableArea(page, reservedHeightPt);
   return (
-    mmToPdfPoints(widthMm, scale) <= drawableWidth &&
-    mmToPdfPoints(heightMm, scale) <= drawableHeight
+    mmToPdfPoints(widthMm, scale) <= drawable.widthPt &&
+    mmToPdfPoints(heightMm, scale) <= drawable.heightPt
   );
+}
+
+/**
+ * The scale at which a plan of this size exactly fills one page.
+ *
+ * This is the deliberate exception to the rule {@link largestFittingScale}
+ * enforces. The result is almost never a scale any physical rule reads, so a
+ * sheet drawn at it **cannot be measured** and must say so — see the title
+ * block in `plan-pdf.ts`, which stamps it NOT TO SCALE.
+ *
+ * It exists because "the whole room on one sheet" and "measurable with a rule"
+ * are genuinely different jobs. A walkthrough sheet, an email attachment, or a
+ * sign-placement overview wants the first; the venue's build sheet wants the
+ * second. Offering only the second made the first impossible.
+ */
+export function fitScale(
+  widthMm: number,
+  heightMm: number,
+  page: PageSpec,
+  reservedHeightPt = 0
+): DrawingScale {
+  const drawable = drawableArea(page, reservedHeightPt);
+  // A plan with no extent has no meaningful fit; full size is the honest answer
+  // and keeps the caller from dividing by zero.
+  if (widthMm <= 0 || heightMm <= 0) return SCALE.full;
+
+  return Math.min(
+    drawable.widthPt / (widthMm * POINTS_PER_MM),
+    drawable.heightPt / (heightMm * POINTS_PER_MM)
+  );
+}
+
+/** True when this scale is one a physical scale rule can read. */
+export function isStandardScale(scale: DrawingScale): boolean {
+  return Object.values(SCALE).includes(scale);
 }
 
 /** Scales drawn on an imperial architect's rule. */
@@ -160,7 +213,8 @@ export function largestFittingScale(
   widthMm: number,
   heightMm: number,
   page: PageSpec,
-  system: 'imperial' | 'metric' = 'imperial'
+  system: 'imperial' | 'metric' = 'imperial',
+  reservedHeightPt = 0
 ): DrawingScale | null {
   // Sorted here rather than maintained by hand: 1/48 is larger than 1/50 and
   // 1/96 is larger than 1/100, which is easy to get backwards when the list is
@@ -170,7 +224,7 @@ export function largestFittingScale(
   );
 
   for (const scale of candidates) {
-    if (fitsOnPage(widthMm, heightMm, scale, page)) return scale;
+    if (fitsOnPage(widthMm, heightMm, scale, page, reservedHeightPt)) return scale;
   }
   return null;
 }

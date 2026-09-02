@@ -15,7 +15,7 @@
 
 import type { FlooredDocument, DocumentMeta } from './document';
 import { CURRENT_SCHEMA_VERSION, createDocument } from './document';
-import type { FloorElement, FixtureKind } from './element';
+import type { FloorElement, FixtureKind, SignMount } from './element';
 import { DEFAULT_LAYERS } from './element';
 import type { Point } from '$lib/geometry/vec';
 import type { Guest, Group, SeatRef, Separation, SeatingPlan } from '$lib/seating/guest';
@@ -138,6 +138,17 @@ function canonicalElement(element: FloorElement): unknown {
         widthMm: element.widthMm,
         depthMm: element.depthMm,
       };
+    case 'sign':
+      return {
+        ...base,
+        mount: element.mount,
+        origin: { x: element.origin.x, y: element.origin.y },
+        widthMm: element.widthMm,
+        depthMm: element.depthMm,
+        faceHeightMm: element.faceHeightMm,
+        sponsor: element.sponsor,
+        doubleSided: element.doubleSided,
+      };
     case 'seatingBlock':
       return {
         ...base,
@@ -232,6 +243,18 @@ const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string
    * check which version the plan came from.
    */
   2: (doc) => doc,
+
+  /**
+   * 3 → 4: adds the `sign` element type, the signage fixture kinds, and the
+   * `signage` default layer.
+   *
+   * Additive again. A v3 plan has no signs, and its `layers` array is left
+   * exactly as written — appending `signage` here would rewrite the layer list
+   * of every existing file on first open, which is a visible change to
+   * someone's document made without them asking for it. New documents get the
+   * layer from `DEFAULT_LAYERS`; old ones get it when a sign is first placed.
+   */
+  3: (doc) => doc,
 };
 
 function migrate(raw: Record<string, unknown>, fromVersion: number): Record<string, unknown> {
@@ -289,8 +312,16 @@ const FIXTURE_KINDS: readonly FixtureKind[] = [
   'buffet',
   'av',
   'column',
+  'registration',
+  'giftStation',
+  'photoBooth',
+  'display',
+  'kiosk',
+  'lounge',
   'other',
 ];
+
+const SIGN_MOUNTS: readonly SignMount[] = ['aFrame', 'tableTent', 'banner', 'cartBoard', 'wall'];
 
 function readElement(value: unknown): FloorElement | undefined {
   if (!isRecord(value)) return undefined;
@@ -358,6 +389,32 @@ function readElement(value: unknown): FloorElement | undefined {
         origin,
         widthMm,
         depthMm,
+      };
+    }
+
+    case 'sign': {
+      const origin = readPoint(value['origin']);
+      const widthMm = int(value['widthMm']);
+      const depthMm = int(value['depthMm']);
+      if (!origin || widthMm <= 0 || depthMm <= 0) return undefined;
+
+      // An unrecognised mount is a damaged file rather than an old one: the
+      // version gate refuses newer files, and every released mount is listed
+      // here. Falling back to a default would silently redraw someone's
+      // A-frame as a wall panel, which is worse than refusing the element.
+      const mount = value['mount'];
+      if (!SIGN_MOUNTS.includes(mount as SignMount)) return undefined;
+
+      return {
+        ...base,
+        type: 'sign',
+        mount: mount as SignMount,
+        origin,
+        widthMm,
+        depthMm,
+        faceHeightMm: Math.max(0, int(value['faceHeightMm'])),
+        sponsor: str(value['sponsor']),
+        doubleSided: bool(value['doubleSided']),
       };
     }
 

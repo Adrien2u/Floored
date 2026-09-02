@@ -79,11 +79,12 @@ describe('placement', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('creates an unlocked element on the furniture layer', () => {
+  it('creates an unlocked element on the layer its category belongs to', () => {
     for (const item of CATALOG) {
       const element = item.create('x', at);
       expect(element.locked).toBe(false);
-      expect(element.layer).toBe('furniture');
+      // Signage lands on its own layer so a sign plan can be shown alone.
+      expect(element.layer).toBe(item.category === 'signage' ? 'signage' : 'furniture');
     }
   });
 

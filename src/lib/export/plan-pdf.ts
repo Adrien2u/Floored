@@ -21,6 +21,9 @@ import {
   pdfPointsToMm,
   scaleLabel,
   largestFittingScale,
+  fitScale,
+  isStandardScale,
+  drawableArea,
   PAGE,
   SCALE,
   type DrawingScale,
@@ -49,6 +52,14 @@ export interface ExportOptions {
   readonly showSeats?: boolean;
   /** Sheet number labels assume this is one plan; used in the title block. */
   readonly sheetTitle?: string;
+  /**
+   * Force the whole plan onto one sheet, at whatever scale that takes.
+   *
+   * The result is almost never a standard scale, so the sheet is stamped
+   * NOT TO SCALE. Ignored when an explicit `scale` is given — an explicit
+   * scale is a stronger instruction than a page-count preference.
+   */
+  readonly singlePage?: boolean;
 }
 
 export interface ExportResult {
@@ -59,6 +70,8 @@ export interface ExportResult {
   readonly pages: number;
   /** True when the plan needed more than one sheet. */
   readonly tiled: boolean;
+  /** True when the scale is not one a physical scale rule can read. */
+  readonly notToScale: boolean;
 }
 
 /**
@@ -74,21 +87,28 @@ export function exportPlanPdf(doc: FlooredDocument, options: ExportOptions = {})
   const system = options.system ?? doc.meta.unitSystem;
   const bounds = documentBounds(doc);
 
-  const drawable = {
-    widthPt: page.widthPt - page.marginPt * 2,
-    heightPt: page.heightPt - page.marginPt * 2 - TITLE_BLOCK_HEIGHT_PT,
-  };
+  const drawable = drawableArea(page, TITLE_BLOCK_HEIGHT_PT);
 
   const scale =
     options.scale ??
-    largestFittingScale(bounds.width, bounds.height, page, system) ??
-    (system === 'imperial' ? SCALE.imperial1_8 : SCALE.metric1_100);
+    (options.singlePage
+      ? fitScale(bounds.width, bounds.height, page, TITLE_BLOCK_HEIGHT_PT)
+      : (largestFittingScale(bounds.width, bounds.height, page, system, TITLE_BLOCK_HEIGHT_PT) ??
+        (system === 'imperial' ? SCALE.imperial1_8 : SCALE.metric1_100)));
+
+  const notToScale = !isStandardScale(scale);
 
   const contentWidthPt = mmToPdfPoints(bounds.width, scale);
   const contentHeightPt = mmToPdfPoints(bounds.height, scale);
 
-  const columns = Math.max(1, Math.ceil(contentWidthPt / drawable.widthPt));
-  const rows = Math.max(1, Math.ceil(contentHeightPt / drawable.heightPt));
+  // `fitScale` sizes the content to sit exactly on the drawable edge, and a
+  // ratio that is mathematically 1 can land a hair above it in floating point,
+  // which `ceil` then turns into a second, blank sheet. When the caller asked
+  // for one page, one page is the answer rather than something to recompute.
+  const onePage = options.scale === undefined && options.singlePage === true;
+
+  const columns = onePage ? 1 : Math.max(1, Math.ceil(contentWidthPt / drawable.widthPt));
+  const rows = onePage ? 1 : Math.max(1, Math.ceil(contentHeightPt / drawable.heightPt));
   const tiled = columns * rows > 1;
 
   const pages: PdfPage[] = [];
@@ -108,7 +128,16 @@ export function exportPlanPdf(doc: FlooredDocument, options: ExportOptions = {})
 
       const commands = [
         ...drawDocument(doc, originMm, scale, page, options.showSeats ?? true),
-        ...drawTitleBlock(doc, scale, page, system, sheet, columns * rows, options.sheetTitle),
+        ...drawTitleBlock(
+          doc,
+          scale,
+          page,
+          system,
+          sheet,
+          columns * rows,
+          notToScale,
+          options.sheetTitle
+        ),
       ];
 
       pages.push({
@@ -125,6 +154,7 @@ export function exportPlanPdf(doc: FlooredDocument, options: ExportOptions = {})
     scaleLabel: scaleLabel(scale),
     pages: pages.length,
     tiled,
+    notToScale,
   };
 }
 
@@ -228,6 +258,7 @@ function drawElement(
 
     case 'rectTable':
     case 'fixture':
+    case 'sign':
     case 'seatingBlock': {
       const size =
         element.type === 'seatingBlock'
@@ -258,6 +289,25 @@ function drawElement(
         const pa = to(a);
         const pb = to(b);
         commands.push({ kind: 'line', x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y });
+      }
+
+      // A sign's footprint is a couple of feet across, so at plan scale it is
+      // far too small to hold text inside it. Architectural practice keys a
+      // small object and sets its text alongside; that is what happens here.
+      if (element.type === 'sign') {
+        const anchor = to({ x: rect.x + rect.width, y: rect.y });
+        const caption = element.sponsor !== '' ? element.sponsor : element.label;
+        if (caption !== '') {
+          commands.push({
+            kind: 'text',
+            x: anchor.x + 3,
+            y: anchor.y - 3,
+            text: caption,
+            sizePt: 5,
+            grey: GREY_MUTED,
+          });
+        }
+        return commands;
       }
 
       const label = element.label !== '' ? element.label : '';
@@ -322,6 +372,7 @@ function drawTitleBlock(
   system: 'imperial' | 'metric',
   sheet: number,
   totalSheets: number,
+  notToScale: boolean,
   sheetTitle?: string
 ): PdfCommand[] {
   const left = page.marginPt;
@@ -334,7 +385,10 @@ function drawTitleBlock(
   const fields: [string, string][] = [
     ['EVENT', doc.meta.name],
     ['DATE', doc.meta.eventDate || '—'],
-    ['SCALE', scaleLabel(scale)],
+    // A reader who cannot measure the sheet has to be told on the sheet. Left
+    // to the export dialog, the warning is lost the moment the PDF is emailed
+    // on, which is the only way most people ever see it.
+    ['SCALE', notToScale ? `${scaleLabel(scale)} — NOT TO SCALE` : scaleLabel(scale)],
     ['EXTENT', `${formatLength(bounds.width, system)} × ${formatLength(bounds.height, system)}`],
     ['SEATS', String(seats)],
     ['SHEET', totalSheets > 1 ? `${String(sheet)} of ${String(totalSheets)}` : '1'],

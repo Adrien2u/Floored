@@ -16,8 +16,14 @@ import { boundsOf, boundsOfRotatedRect } from '$lib/geometry/transform';
 /** Stable identifier. Opaque — never parse meaning out of it. */
 export type ElementId = string;
 
-/** Layer names are free-form; these three always exist in a new document. */
-export const DEFAULT_LAYERS = ['room', 'furniture', 'annotations'] as const;
+/**
+ * Layer names are free-form; these four always exist in a new document.
+ *
+ * `signage` is separate from `furniture` because signs are the one class of
+ * object that gets read on its own — the install crew works a sign plan, the
+ * catering crew works a furniture plan.
+ */
+export const DEFAULT_LAYERS = ['room', 'furniture', 'signage', 'annotations'] as const;
 
 interface ElementBase {
   readonly id: ElementId;
@@ -52,8 +58,21 @@ export interface RectTableElement extends ElementBase {
   readonly seats: number;
 }
 
-/** Non-seating furniture: stage, dancefloor, bar, buffet, DJ booth. */
-export type FixtureKind = 'stage' | 'dancefloor' | 'bar' | 'buffet' | 'av' | 'column' | 'other';
+/** Non-seating furniture: stage, dancefloor, bar, buffet, DJ booth, gift station. */
+export type FixtureKind =
+  | 'stage'
+  | 'dancefloor'
+  | 'bar'
+  | 'buffet'
+  | 'av'
+  | 'column'
+  | 'registration'
+  | 'giftStation'
+  | 'photoBooth'
+  | 'display'
+  | 'kiosk'
+  | 'lounge'
+  | 'other';
 
 export interface FixtureElement extends ElementBase {
   readonly type: 'fixture';
@@ -82,6 +101,42 @@ export interface SeatingBlockElement extends ElementBase {
   readonly rowPitchMm: number;
 }
 
+/**
+ * How a sign is held up. Determines its footprint and how it is drawn.
+ *
+ * The mount, not the artwork, is what a plan can say something useful about:
+ * an A-frame needs floor it can stand on, a table tent needs a table under it,
+ * and a banner needs something to hang from.
+ */
+export type SignMount = 'aFrame' | 'tableTent' | 'banner' | 'cartBoard' | 'wall';
+
+/**
+ * A piece of printed signage: sponsor board, table tent, course banner.
+ *
+ * Deliberately shares `origin`/`widthMm`/`depthMm` with {@link FixtureElement},
+ * so bounds, hit-testing, dragging and rotation reuse the fixture paths rather
+ * than growing a parallel set. Those three are the *plan footprint* — what the
+ * sign occupies on the floor. `faceHeightMm` is the printed face's vertical
+ * height, which never appears in plan view but is what gets ordered from the
+ * printer, so it belongs on the element rather than in a note.
+ *
+ * There is no artwork field. Floored embeds no images (ADR-0011), so `sponsor`
+ * is drawn as text and the real artwork lives with MarCom.
+ */
+export interface SignElement extends ElementBase {
+  readonly type: 'sign';
+  readonly mount: SignMount;
+  /** Top-left corner of the footprint, before rotation. */
+  readonly origin: Point;
+  readonly widthMm: number;
+  readonly depthMm: number;
+  /** Printed face height. Vertical, so invisible in plan view. */
+  readonly faceHeightMm: number;
+  /** Sponsor or purpose, drawn on the face. Free text — new sponsors need no code. */
+  readonly sponsor: string;
+  readonly doubleSided: boolean;
+}
+
 /** A free-standing text note on the plan. */
 export interface NoteElement extends ElementBase {
   readonly type: 'note';
@@ -94,6 +149,7 @@ export type FloorElement =
   | RoundTableElement
   | RectTableElement
   | FixtureElement
+  | SignElement
   | SeatingBlockElement
   | NoteElement;
 
@@ -164,6 +220,7 @@ export function elementBounds(element: FloorElement): Rect {
       );
 
     case 'fixture':
+    case 'sign':
       return boundsOfRotatedRect(
         {
           x: element.origin.x,
@@ -201,6 +258,7 @@ export function elementPosition(element: FloorElement): Point {
       return element.center;
     case 'rectTable':
     case 'fixture':
+    case 'sign':
     case 'seatingBlock':
     case 'note':
       return element.origin;
@@ -232,6 +290,7 @@ export function moveElement(element: FloorElement, dx: number, dy: number): Floo
       return { ...element, center: { x: element.center.x + dx, y: element.center.y + dy } };
     case 'rectTable':
     case 'fixture':
+    case 'sign':
     case 'seatingBlock':
     case 'note':
       return { ...element, origin: { x: element.origin.x + dx, y: element.origin.y + dy } };

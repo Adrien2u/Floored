@@ -8,6 +8,7 @@ write these files; the schemas here are published so it can.
 | 1       | [floored-v1.schema.json](floored-v1.schema.json) | room, roundTable, rectTable, fixture, note |
 | 2       | [floored-v2.schema.json](floored-v2.schema.json) | seatingBlock                               |
 | 3       | [floored-v3.schema.json](floored-v3.schema.json) | the optional `seating` block               |
+| 4       | [floored-v4.schema.json](floored-v4.schema.json) | the `sign` element, signage fixture kinds  |
 
 ## The guarantee
 

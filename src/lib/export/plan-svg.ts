@@ -23,6 +23,7 @@ import {
   mmToPdfPoints,
   scaleLabel,
   largestFittingScale,
+  fitScale,
   PAGE,
   SCALE,
   type DrawingScale,
@@ -33,6 +34,14 @@ export interface SvgOptions {
   readonly showSeats?: boolean;
   /** Margin around the plan, in millimetres of real-world space. */
   readonly marginMm?: number;
+  /**
+   * Scale the plan to fill a single Letter-landscape sheet.
+   *
+   * An SVG is one continuous sheet whatever the scale, so unlike the PDF this
+   * changes nothing structural — it only picks the same non-standard ratio, so
+   * that exporting the same view as SVG and as PDF gives the same drawing.
+   */
+  readonly singlePage?: boolean;
 }
 
 const STROKE_WALL = 1.2;
@@ -65,8 +74,14 @@ export function exportPlanSvg(doc: FlooredDocument, options: SvgOptions = {}): s
 
   const scale =
     options.scale ??
-    largestFittingScale(bounds.width, bounds.height, PAGE.letterLandscape, doc.meta.unitSystem) ??
-    SCALE.imperial1_8;
+    (options.singlePage
+      ? fitScale(bounds.width + marginMm * 2, bounds.height + marginMm * 2, PAGE.letterLandscape)
+      : (largestFittingScale(
+          bounds.width,
+          bounds.height,
+          PAGE.letterLandscape,
+          doc.meta.unitSystem
+        ) ?? SCALE.imperial1_8));
 
   const originMm: Point = { x: bounds.x - marginMm, y: bounds.y - marginMm };
   const widthPt = mmToPdfPoints(bounds.width + marginMm * 2, scale);
@@ -157,6 +172,7 @@ function svgForElement(
 
     case 'rectTable':
     case 'fixture':
+    case 'sign':
     case 'seatingBlock': {
       const size =
         element.type === 'seatingBlock'

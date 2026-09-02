@@ -47,10 +47,10 @@ describe('createDocument', () => {
     expect(createDocument().schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
   });
 
-  it('starts empty with the three default layers', () => {
+  it('starts empty with the four default layers', () => {
     const doc = createDocument();
     expect(doc.elements).toEqual([]);
-    expect(doc.layers).toEqual(['room', 'furniture', 'annotations']);
+    expect(doc.layers).toEqual(['room', 'furniture', 'signage', 'annotations']);
   });
 
   it('holds no Date, Map, or class instance — it must survive JSON round-trip', () => {

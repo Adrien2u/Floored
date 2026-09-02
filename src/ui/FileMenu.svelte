@@ -35,10 +35,19 @@
 
   let fileInput: HTMLInputElement;
   let message = $state<{ text: string; kind: 'ok' | 'error' } | null>(null);
-  let scaleChoice = $state<DrawingScale | 'auto'>('auto');
+  let scaleChoice = $state<DrawingScale | 'auto' | 'onePage'>('auto');
 
-  const scales: { label: string; value: DrawingScale | 'auto' }[] = [
-    { label: 'Fit to page', value: 'auto' },
+  /**
+   * Export scale choices.
+   *
+   * `auto` used to be labelled "Fit to page", which it never did — it picks the
+   * largest *standard* scale and tiles when none fits, so a big room silently
+   * came out as several sheets. `onePage` is the option that actually fits, at
+   * the cost of a scale no rule can read.
+   */
+  const scales: { label: string; value: DrawingScale | 'auto' | 'onePage' }[] = [
+    { label: 'Largest standard scale', value: 'auto' },
+    { label: 'Fit to one page (not to scale)', value: 'onePage' },
     { label: '1/8" = 1\'-0"', value: SCALE.imperial1_8 },
     { label: '1/4" = 1\'-0"', value: SCALE.imperial1_4 },
     { label: '1/2" = 1\'-0"', value: SCALE.imperial1_2 },
@@ -47,9 +56,17 @@
   ];
 
   /** What the PDF export would produce, so the user knows before they click. */
-  const preview = $derived(
-    exportPlanPdf(editor.document, scaleChoice === 'auto' ? {} : { scale: scaleChoice })
+  /** Export options for the current choice, shared by the preview and the save. */
+  const exportOptions = $derived(
+    scaleChoice === 'auto'
+      ? {}
+      : scaleChoice === 'onePage'
+        ? { singlePage: true }
+        : { scale: scaleChoice }
   );
+
+  /** What the PDF export would produce, so the user knows before they click. */
+  const preview = $derived(exportPlanPdf(editor.document, exportOptions));
 
   function say(text: string, kind: 'ok' | 'error' = 'ok') {
     message = { text, kind };
@@ -59,11 +76,14 @@
   }
 
   function exportPdf() {
-    savePdf(editor.document, scaleChoice === 'auto' ? {} : { scale: scaleChoice });
+    savePdf(editor.document, exportOptions);
+    const scaleNote = preview.notToScale
+      ? `${preview.scaleLabel} — not to scale`
+      : preview.scaleLabel;
     say(
       preview.tiled
-        ? `Saved ${String(preview.pages)} sheets at ${preview.scaleLabel}.`
-        : `Saved one sheet at ${preview.scaleLabel}.`
+        ? `Saved ${String(preview.pages)} sheets at ${scaleNote}.`
+        : `Saved one sheet at ${scaleNote}.`
     );
   }
 
@@ -172,7 +192,7 @@
     <button onclick={exportPdf} data-testid="export-pdf">Export PDF</button>
     <button
       onclick={() => {
-        saveSvg(editor.document, scaleChoice === 'auto' ? {} : { scale: scaleChoice });
+        saveSvg(editor.document, exportOptions);
       }}
       data-testid="export-svg">SVG</button
     >

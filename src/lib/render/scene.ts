@@ -71,7 +71,8 @@ export function hitsElement(element: FloorElement, point: Point): boolean {
 
     case 'seatingBlock':
     case 'rectTable':
-    case 'fixture': {
+    case 'fixture':
+    case 'sign': {
       const size =
         element.type === 'seatingBlock'
           ? seatingBlockSize(element)

@@ -39,6 +39,11 @@ version. A promise without a test is a wish.
   migration, no exceptions.
 - Embedded raster images will eventually push file size up; that is the trigger
   to revisit the zip-container option, not a reason to pre-build it.
+- Version 4 adds the `sign` element for printed signage. It carries a sponsor as
+  _text_, not artwork, precisely to avoid tripping the zip-container trigger
+  before there is a reason to: a sign plan needs to say where a sign goes and
+  what is on it, which JSON holds fine. Real sponsor artwork is the case that
+  forces the container question, and it is still open.
 
 ## Reverse if
 

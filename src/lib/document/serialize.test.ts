@@ -206,7 +206,12 @@ describe('filling in missing optional data', () => {
 
   it('falls back to the default layers when none are listed', () => {
     const result = parse('{"schemaVersion":1,"elements":[]}');
-    expect(result.ok && result.document.layers).toEqual(['room', 'furniture', 'annotations']);
+    expect(result.ok && result.document.layers).toEqual([
+      'room',
+      'furniture',
+      'signage',
+      'annotations',
+    ]);
   });
 
   it('coerces an unrecognized unit system to imperial', () => {
